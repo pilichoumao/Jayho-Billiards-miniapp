@@ -19,6 +19,8 @@ type PageInstance = {
   setData(_data: Partial<IndexPageData>): void;
 };
 
+const NO_SOLUTION_TEXT = "未找到可用结果，请调整参数后重试。";
+
 declare const Page: (_options: Record<string, unknown>) => void;
 
 const MODE1_REQUEST: SolveRequest = {
@@ -112,6 +114,17 @@ Page({
 
     try {
       const result = solveShot(createRequest(page.data.mode));
+
+      if (result.candidates.length === 0) {
+        page.setData({
+          resultTitle: "",
+          resultLines: [],
+          errorText: NO_SOLUTION_TEXT
+        });
+
+        return;
+      }
+
       const summary = summarizeResult(page.data.mode, result);
 
       page.setData({
