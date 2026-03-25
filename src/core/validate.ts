@@ -46,7 +46,11 @@ export function validateRequest(req: SolveRequest): SolveRequest {
     throw new Error("cushionMin must be <= cushionMax");
   }
 
-  if (normalized.mode === "mode2_cue_direction" && normalized.input.cueDirection) {
+  if (normalized.mode === "mode2_cue_direction") {
+    if (!normalized.input.cueDirection) {
+      throw new Error("mode2 requires cueDirection");
+    }
+
     const { x, y } = normalized.input.cueDirection;
     if (x === 0 && y === 0) {
       throw new Error("cueDirection must not be zero");

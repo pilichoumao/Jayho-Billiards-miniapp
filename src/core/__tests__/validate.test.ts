@@ -48,6 +48,16 @@ describe("validateRequest", () => {
     ).toThrow(/target/i);
   });
 
+  it("rejects missing cue ball", () => {
+    expect(() =>
+      validateRequest(
+        makeRequest({
+          balls: [makeBall({ role: "target", id: "target", pos: { x: 0.6, y: 0.6 } })]
+        })
+      )
+    ).toThrow(/cue ball/i);
+  });
+
   it("applies mode1 defaults for cushion range and obstacle avoidance", () => {
     const result = validateRequest(
       makeRequest({
@@ -82,6 +92,16 @@ describe("validateRequest", () => {
 
     expect(result.constraints.cushionMin).toBe(5);
     expect(result.constraints.cushionMax).toBe(2);
+  });
+
+  it("rejects mode2 when cueDirection is missing", () => {
+    expect(() =>
+      validateRequest(
+        makeRequest({
+          mode: "mode2_cue_direction"
+        })
+      )
+    ).toThrow(/cueDirection/i);
   });
 
   it("rejects mode2 cue direction with zero magnitude", () => {
