@@ -1,5 +1,5 @@
-import { solveShot } from "../../../src/core/adapter";
-import type { CandidatePath, SolveMode, SolveRequest, SolveResponse } from "../../../src/core/types";
+import { solveShot } from "../../core/adapter";
+import type { CandidatePath, SolveMode, SolveRequest, SolveResponse } from "../../core/types";
 
 type IndexPageData = {
   mode: SolveMode;

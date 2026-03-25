@@ -65,7 +65,7 @@ describe("solveMode2", () => {
     expect(first.candidates[0].segments[0].to.x).toBeCloseTo(0.972, 6);
     expect(first.candidates[0].segments[0].to.y).toBeGreaterThan(0.028);
     expect(first.candidates[0].segments[0].to.y).toBeLessThan(0.972);
-    expect(first.candidates[0].segments.at(-1)?.event).toBe("contact");
+    expect(first.candidates[0].segments[first.candidates[0].segments.length - 1]?.event).toBe("contact");
     expect(first.candidates[0].segments.map((segment) => segment.event)).toEqual([
       "start",
       "contact"
