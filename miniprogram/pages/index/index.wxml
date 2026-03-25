@@ -1,1 +1,41 @@
-<view>Index</view>
+<view class="page-shell">
+  <view class="hero-card">
+    <text class="eyebrow">Jayho Billiards MVP</text>
+    <text class="hero-title">Shot Solver</text>
+    <text class="hero-copy">Switch between a contact-path search and a cue-direction trajectory, then run the local geometry solver.</text>
+  </view>
+
+  <view class="panel">
+    <text class="panel-title">Mode</text>
+    <radio-group class="mode-list" bindchange="handleModeChange">
+      <label class="mode-item {{mode === 'mode1_contact_paths' ? 'is-active' : ''}}">
+        <radio value="mode1_contact_paths" checked="{{mode === 'mode1_contact_paths'}}" color="#0f766e" />
+        <view class="mode-copy">
+          <text class="mode-name">Mode 1</text>
+          <text class="mode-desc">Search contact paths with 2 to 5 cushions.</text>
+        </view>
+      </label>
+      <label class="mode-item {{mode === 'mode2_cue_direction' ? 'is-active' : ''}}">
+        <radio value="mode2_cue_direction" checked="{{mode === 'mode2_cue_direction'}}" color="#0f766e" />
+        <view class="mode-copy">
+          <text class="mode-name">Mode 2</text>
+          <text class="mode-desc">Simulate a cue direction until contact, threshold, or timeout.</text>
+        </view>
+      </label>
+    </radio-group>
+
+    <button class="calculate-button" bindtap="handleCalculate">Calculate</button>
+  </view>
+
+  <view class="panel">
+    <text class="panel-title">Result</text>
+    <text wx:if="{{errorText}}" class="error-text">{{errorText}}</text>
+
+    <view wx:if="{{!errorText && resultLines.length}}" class="result-stack">
+      <text class="result-title">{{resultTitle}}</text>
+      <text wx:for="{{resultLines}}" wx:key="*this" class="result-line">{{item}}</text>
+    </view>
+
+    <text wx:if="{{!errorText && !resultLines.length}}" class="placeholder-text">Choose a mode and tap calculate to inspect the first candidate.</text>
+  </view>
+</view>
