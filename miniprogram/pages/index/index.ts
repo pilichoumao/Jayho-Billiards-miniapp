@@ -1,3 +1,3 @@
-declare const Page: (options: Record<string, unknown>) => void;
+declare const Page: (_options: Record<string, unknown>) => void;
 
 Page({});

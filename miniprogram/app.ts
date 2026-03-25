@@ -1,3 +1,3 @@
-declare const App: (options: Record<string, unknown>) => void;
+declare const App: (_options: Record<string, unknown>) => void;
 
 App({});
