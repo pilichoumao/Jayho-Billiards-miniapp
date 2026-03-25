@@ -5,11 +5,12 @@ export type Vec2 = {
   y: number;
 };
 
-export type BallKind = "cue" | "target";
+export type BallRole = "cue" | "target" | "obstacle";
 
-export type Ball = Vec2 & {
+export type Ball = {
   id: string;
-  kind: BallKind;
+  role: BallRole;
+  pos: Vec2;
   radius: number;
 };
 
@@ -36,4 +37,30 @@ export type SolveRequest = {
   balls: Ball[];
   constraints: SolveConstraints;
   input: SolveInput;
+};
+
+export type PathSegment = {
+  from: Vec2;
+  to: Vec2;
+  event: "start" | "cushion" | "contact" | "end";
+};
+
+export type CandidatePath = {
+  id: string;
+  score: number;
+  cushions: number;
+  blocked: boolean;
+  rejectReason?: string;
+  segments: PathSegment[];
+  metrics: {
+    travelDistance: number;
+    minClearance: number;
+    estError?: number;
+  };
+};
+
+export type SolveResponse = {
+  solver: "local-geo" | "remote-physics";
+  elapsedMs: number;
+  candidates: CandidatePath[];
 };

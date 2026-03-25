@@ -3,13 +3,17 @@ import { validateRequest } from "../validate";
 import type { Ball, SolveRequest } from "../types";
 
 function makeBall(overrides: Partial<Ball> = {}): Ball {
+  const { pos, ...rest } = overrides;
+
   return {
     id: "cue",
-    kind: "cue",
-    x: 0.2,
-    y: 0.2,
+    role: "cue",
+    pos: {
+      x: pos?.x ?? 0.2,
+      y: pos?.y ?? 0.2
+    },
     radius: 0.028,
-    ...overrides
+    ...rest
   };
 }
 
@@ -47,7 +51,7 @@ describe("validateRequest", () => {
   it("applies mode1 defaults for cushion range and obstacle avoidance", () => {
     const result = validateRequest(
       makeRequest({
-        balls: [makeBall(), makeBall({ id: "target", kind: "target", x: 0.6, y: 0.6 })],
+        balls: [makeBall(), makeBall({ id: "target", role: "target", pos: { x: 0.6, y: 0.6 } })],
         constraints: {
           timeoutMs: 2000
         } as SolveRequest["constraints"]
@@ -60,23 +64,24 @@ describe("validateRequest", () => {
     expect(result.constraints.timeoutMs).toBe(2000);
   });
 
-  it("rejects invalid cushion range in mode2 when both bounds are provided", () => {
-    expect(() =>
-      validateRequest(
-        makeRequest({
-          mode: "mode2_cue_direction",
-          balls: [makeBall()],
-          constraints: {
-            cushionMin: 5,
-            cushionMax: 2,
-            timeoutMs: 2000
-          },
-          input: {
-            cueDirection: { x: 1, y: 0 }
-          }
-        })
-      )
-    ).toThrow(/cushionMin/i);
+  it("ignores cushion range fields in mode2", () => {
+    const result = validateRequest(
+      makeRequest({
+        mode: "mode2_cue_direction",
+        balls: [makeBall()],
+        constraints: {
+          cushionMin: 5,
+          cushionMax: 2,
+          timeoutMs: 2000
+        },
+        input: {
+          cueDirection: { x: 1, y: 0 }
+        }
+      })
+    );
+
+    expect(result.constraints.cushionMin).toBe(5);
+    expect(result.constraints.cushionMax).toBe(2);
   });
 
   it("rejects mode2 cue direction with zero magnitude", () => {
@@ -96,10 +101,7 @@ describe("validateRequest", () => {
     expect(() =>
       validateRequest(
         makeRequest({
-          balls: [
-            makeBall(),
-            makeBall({ id: "target", kind: "target", x: 0.2, y: 0.2 })
-          ]
+          balls: [makeBall(), makeBall({ id: "target", role: "target", pos: { x: 0.2, y: 0.2 } })]
         })
       )
     ).toThrow(/overlap/i);
@@ -111,7 +113,7 @@ describe("validateRequest", () => {
         makeRequest({
           balls: [
             makeBall(),
-            makeBall({ id: "target", kind: "target", x: 0.98, y: 0.6, radius: 0.03 })
+            makeBall({ id: "target", role: "target", pos: { x: 0.98, y: 0.6 }, radius: 0.03 })
           ]
         })
       )
