@@ -12,6 +12,8 @@ function loadScene(name: string): SolveRequest {
 }
 
 function candidateSignature(candidate: CandidatePath) {
+  const lastSegment = candidate.segments[candidate.segments.length - 1];
+
   return {
     id: candidate.id,
     cushions: candidate.cushions,
@@ -21,7 +23,7 @@ function candidateSignature(candidate: CandidatePath) {
     score: Number(candidate.score.toFixed(2)),
     travelDistance: Number(candidate.metrics.travelDistance.toFixed(3)),
     minClearance: Number(candidate.metrics.minClearance.toFixed(3)),
-    lastEvent: candidate.segments.at(-1)?.event
+    lastEvent: lastSegment?.event
   };
 }
 
@@ -69,7 +71,7 @@ describe("fixture regression suite", () => {
     expect(first.candidates[0].metrics.travelDistance).toBeGreaterThan(0);
     expect(first.candidates[0].metrics.travelDistance).toBeLessThan(10);
     expect(first.candidates[0].metrics.minClearance).toBeGreaterThanOrEqual(0);
-    expect(first.candidates[0].segments.at(-1)?.event).toBe("contact");
+    expect(first.candidates[0].segments[first.candidates[0].segments.length - 1]?.event).toBe("contact");
     expect(first.candidates[0].segments.some((segment) => segment.event === "cushion")).toBe(true);
     expect(first.candidates.slice(0, 2).map(candidateSignature)).toEqual([
       {
@@ -78,9 +80,9 @@ describe("fixture regression suite", () => {
         blocked: false,
         rejectReason: undefined,
         segments: 3,
-        score: 997875.58,
-        travelDistance: 1.246,
-        minClearance: 0.021,
+        score: 997883.48,
+        travelDistance: 1.167,
+        minClearance: 0.02,
         lastEvent: "contact"
       },
       {
@@ -89,9 +91,9 @@ describe("fixture regression suite", () => {
         blocked: false,
         rejectReason: undefined,
         segments: 3,
-        score: 997872.28,
-        travelDistance: 1.306,
-        minClearance: 0.291,
+        score: 997879.77,
+        travelDistance: 1.227,
+        minClearance: 0.252,
         lastEvent: "contact"
       }
     ]);
@@ -117,8 +119,8 @@ describe("fixture regression suite", () => {
         blocked: true,
         rejectReason: "blocked by obstacle",
         segments: 3,
-        score: -1002129.45,
-        travelDistance: 1.289,
+        score: -1002121.54,
+        travelDistance: 1.21,
         minClearance: -0.051,
         lastEvent: "contact"
       },
@@ -128,8 +130,8 @@ describe("fixture regression suite", () => {
         blocked: true,
         rejectReason: "blocked by obstacle",
         segments: 3,
-        score: -1002129.45,
-        travelDistance: 1.289,
+        score: -1002121.54,
+        travelDistance: 1.21,
         minClearance: -0.051,
         lastEvent: "contact"
       }
@@ -225,7 +227,7 @@ describe("index page error mapping", () => {
       solveShot
     }));
 
-    await import("../../../miniprogram/pages/index/index.ts");
+    await import("../../../miniprogram/pages/index/index");
 
     const page = {
       data: {
@@ -266,7 +268,7 @@ describe("index page error mapping", () => {
       solveShot
     }));
 
-    await import("../../../miniprogram/pages/index/index.ts");
+    await import("../../../miniprogram/pages/index/index");
 
     const page = {
       data: {

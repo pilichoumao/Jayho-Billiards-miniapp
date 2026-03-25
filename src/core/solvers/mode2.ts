@@ -2,13 +2,14 @@ import { distancePointToSegment, segment, segmentLength } from "../geometry";
 import type { Ball, CandidatePath, PathSegment, SolveRequest, SolveResponse, Vec2 } from "../types";
 
 type CushionSide = "left" | "right" | "top" | "bottom";
-type RejectReason = "timeout" | "travel-distance-threshold";
+type RejectReason = "timeout" | "travel-distance-threshold" | "blocked by obstacle";
 
 type RayHit =
   | {
       kind: "ball";
       t: number;
       point: Vec2;
+      ball: Ball;
     }
   | {
       kind: "cushion";
@@ -66,6 +67,7 @@ function simulateTrajectory(args: SimulationArgs): CandidatePath {
   let cushions = 0;
   let travelDistance = 0;
   let minClearance = Number.POSITIVE_INFINITY;
+  let blocked = false;
   let rejectReason: RejectReason | undefined;
 
   if (args.timeoutMs <= 0) {
@@ -114,6 +116,10 @@ function simulateTrajectory(args: SimulationArgs): CandidatePath {
     minClearance = Math.min(minClearance, computeMinClearance(segments[segments.length - 1], cueRadius, args.balls));
 
     if (hit.kind === "ball") {
+      if (hit.ball.role === "obstacle") {
+        blocked = true;
+        rejectReason = "blocked by obstacle";
+      }
       break;
     }
 
@@ -130,7 +136,7 @@ function simulateTrajectory(args: SimulationArgs): CandidatePath {
     id: `mode2-${cushions}-${segments.length}`,
     score: rankScore(cushions, travelDistance, minClearance, rejectReason),
     cushions,
-    blocked: false,
+    blocked,
     rejectReason,
     segments,
     metrics: {
@@ -198,7 +204,8 @@ function findNextHit(current: Vec2, direction: Vec2, cueRadius: number, balls: B
       bestBall = {
         kind: "ball",
         t: hit.t,
-        point: hit.point
+        point: hit.point,
+        ball
       };
     }
   }

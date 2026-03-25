@@ -45,7 +45,7 @@ function buildCandidateFromMirror(
   obstacles: Ball[],
   avoidObstacle: boolean
 ): CandidatePath | null {
-  const travelPoints = buildTravelPoints(cue.pos, target.pos, sequence);
+  const travelPoints = buildTravelPoints(cue.pos, target.pos, sequence, cue.radius);
 
   if (!travelPoints) {
     return null;
@@ -78,14 +78,14 @@ function buildCandidateFromMirror(
   };
 }
 
-function buildTravelPoints(cue: Vec2, target: Vec2, sequence: CushionSide[]): Vec2[] | null {
-  const mirroredTarget = sequence.reduceRight((point, side) => reflectPoint(point, side), target);
+function buildTravelPoints(cue: Vec2, target: Vec2, sequence: CushionSide[], cueRadius: number): Vec2[] | null {
+  const mirroredTarget = sequence.reduceRight((point, side) => reflectPoint(point, side, cueRadius), target);
   const points: Vec2[] = [cue];
   let current = cue;
   let aim = mirroredTarget;
 
   for (const side of sequence) {
-    const bounce = intersectCushion(current, aim, side);
+    const bounce = intersectCushion(current, aim, side, cueRadius);
 
     if (!bounce) {
       return null;
@@ -93,7 +93,7 @@ function buildTravelPoints(cue: Vec2, target: Vec2, sequence: CushionSide[]): Ve
 
     points.push(bounce);
     current = bounce;
-    aim = reflectPoint(aim, side);
+    aim = reflectPoint(aim, side, cueRadius);
   }
 
   return points;
@@ -209,12 +209,14 @@ function rankScore(cushions: number, travelDistance: number, minClearance: numbe
   return base - cushions * 1_000 - travelDistance * 100 + minClearance * 10;
 }
 
-function intersectCushion(from: Vec2, to: Vec2, side: CushionSide): Vec2 | null {
+function intersectCushion(from: Vec2, to: Vec2, side: CushionSide, cueRadius: number): Vec2 | null {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
+  const minBound = cueRadius;
+  const maxBound = 1 - cueRadius;
 
   if (side === "left" || side === "right") {
-    const x = side === "left" ? 0 : 1;
+    const x = side === "left" ? minBound : maxBound;
 
     if (Math.abs(dx) <= EPSILON) {
       return null;
@@ -228,10 +230,10 @@ function intersectCushion(from: Vec2, to: Vec2, side: CushionSide): Vec2 | null 
 
     const y = from.y + dy * t;
 
-    return y <= EPSILON || y >= 1 - EPSILON ? null : { x, y };
+    return y <= minBound + EPSILON || y >= maxBound - EPSILON ? null : { x, y };
   }
 
-  const y = side === "top" ? 0 : 1;
+  const y = side === "top" ? minBound : maxBound;
 
   if (Math.abs(dy) <= EPSILON) {
     return null;
@@ -245,19 +247,19 @@ function intersectCushion(from: Vec2, to: Vec2, side: CushionSide): Vec2 | null 
 
   const x = from.x + dx * t;
 
-  return x <= EPSILON || x >= 1 - EPSILON ? null : { x, y };
+  return x <= minBound + EPSILON || x >= maxBound - EPSILON ? null : { x, y };
 }
 
-function reflectPoint(point: Vec2, side: CushionSide): Vec2 {
+function reflectPoint(point: Vec2, side: CushionSide, cueRadius: number): Vec2 {
   switch (side) {
     case "left":
-      return { x: -point.x, y: point.y };
+      return { x: 2 * cueRadius - point.x, y: point.y };
     case "right":
-      return { x: 2 - point.x, y: point.y };
+      return { x: 2 * (1 - cueRadius) - point.x, y: point.y };
     case "top":
-      return { x: point.x, y: -point.y };
+      return { x: point.x, y: 2 * cueRadius - point.y };
     case "bottom":
-      return { x: point.x, y: 2 - point.y };
+      return { x: point.x, y: 2 * (1 - cueRadius) - point.y };
   }
 }
 

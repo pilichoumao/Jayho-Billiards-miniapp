@@ -48,6 +48,44 @@ function makeTimeoutRequest(timeoutMs: number): SolveRequest {
   });
 }
 
+function makeObstacleBeforeTargetRequest(): SolveRequest {
+  return validateRequest({
+    mode: "mode2_cue_direction",
+    table: {
+      width: 2.84,
+      height: 1.42,
+      pocketR: 0.06
+    },
+    balls: [
+      {
+        id: "cue",
+        role: "cue",
+        pos: { x: 0.2, y: 0.4 },
+        radius: 0.028
+      },
+      {
+        id: "obstacle-1",
+        role: "obstacle",
+        pos: { x: 0.45, y: 0.425 },
+        radius: 0.028
+      },
+      {
+        id: "target",
+        role: "target",
+        pos: { x: 0.7, y: 0.45 },
+        radius: 0.028
+      }
+    ],
+    constraints: {
+      avoidObstacle: true,
+      timeoutMs: 2000
+    },
+    input: {
+      cueDirection: { x: 1, y: 0.1 }
+    }
+  });
+}
+
 describe("solveMode2", () => {
   it("reflects off cue-center bounds before contacting the target", () => {
     const scene = loadScene("mode2-direction");
@@ -91,6 +129,18 @@ describe("solveMode2", () => {
 
     expect(result.candidates).toHaveLength(1);
     expect(result.candidates[0].rejectReason).toBe("timeout");
+  });
+
+  it("marks the candidate unusable when an obstacle is hit before the target", () => {
+    const scene = makeObstacleBeforeTargetRequest();
+
+    const result = solveMode2(scene);
+
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].blocked).toBe(true);
+    expect(result.candidates[0].rejectReason).toBe("blocked by obstacle");
+    expect(result.candidates[0].segments).toHaveLength(1);
+    expect(result.candidates[0].segments[0].event).toBe("start");
   });
 
   it("throws a clear error when cueDirection is missing at the solver level", () => {

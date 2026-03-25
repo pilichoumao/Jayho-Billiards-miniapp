@@ -72,4 +72,28 @@ describe("solveMode1", () => {
     expect(result.candidates.every((candidate) => candidate.blocked)).toBe(true);
     expect(result.candidates.every((candidate) => candidate.rejectReason?.includes("obstacle"))).toBe(true);
   });
+
+  it("keeps all returned path points inside cue-center table bounds", () => {
+    const scene = loadScene("mode1-basic");
+    const cueRadius = scene.balls.find((ball) => ball.role === "cue")?.radius ?? 0;
+    const minBound = cueRadius;
+    const maxBound = 1 - cueRadius;
+
+    const result = solveMode1(scene);
+
+    expect(result.candidates.length).toBeGreaterThan(0);
+
+    for (const candidate of result.candidates) {
+      for (const pathSegment of candidate.segments) {
+        expect(pathSegment.from.x).toBeGreaterThanOrEqual(minBound);
+        expect(pathSegment.from.x).toBeLessThanOrEqual(maxBound);
+        expect(pathSegment.from.y).toBeGreaterThanOrEqual(minBound);
+        expect(pathSegment.from.y).toBeLessThanOrEqual(maxBound);
+        expect(pathSegment.to.x).toBeGreaterThanOrEqual(minBound);
+        expect(pathSegment.to.x).toBeLessThanOrEqual(maxBound);
+        expect(pathSegment.to.y).toBeGreaterThanOrEqual(minBound);
+        expect(pathSegment.to.y).toBeLessThanOrEqual(maxBound);
+      }
+    }
+  });
 });
