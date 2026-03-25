@@ -30,13 +30,17 @@ export function validateRequest(req: SolveRequest): SolveRequest {
     throw new Error("mode1 requires target ball");
   }
 
+  if (
+    normalized.constraints.cushionMin != null &&
+    normalized.constraints.cushionMax != null &&
+    normalized.constraints.cushionMin > normalized.constraints.cushionMax
+  ) {
+    throw new Error("cushionMin must be <= cushionMax");
+  }
+
   if (normalized.mode === "mode1_contact_paths") {
     if (normalized.constraints.cushionMin == null || normalized.constraints.cushionMax == null) {
       throw new Error("mode1 requires cushion range");
-    }
-
-    if (normalized.constraints.cushionMin > normalized.constraints.cushionMax) {
-      throw new Error("cushionMin must be <= cushionMax");
     }
   }
 

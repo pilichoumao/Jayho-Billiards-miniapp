@@ -60,6 +60,25 @@ describe("validateRequest", () => {
     expect(result.constraints.timeoutMs).toBe(2000);
   });
 
+  it("rejects invalid cushion range in mode2 when both bounds are provided", () => {
+    expect(() =>
+      validateRequest(
+        makeRequest({
+          mode: "mode2_cue_direction",
+          balls: [makeBall()],
+          constraints: {
+            cushionMin: 5,
+            cushionMax: 2,
+            timeoutMs: 2000
+          },
+          input: {
+            cueDirection: { x: 1, y: 0 }
+          }
+        })
+      )
+    ).toThrow(/cushionMin/i);
+  });
+
   it("rejects mode2 cue direction with zero magnitude", () => {
     expect(() =>
       validateRequest(
