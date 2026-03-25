@@ -22,8 +22,34 @@ function summarizeCandidate(candidate: CandidatePath) {
   };
 }
 
+function makeTimeoutRequest(timeoutMs: number): SolveRequest {
+  return validateRequest({
+    mode: "mode2_cue_direction",
+    table: {
+      width: 2.84,
+      height: 1.42,
+      pocketR: 0.06
+    },
+    balls: [
+      {
+        id: "cue",
+        role: "cue",
+        pos: { x: 0.2, y: 0.4 },
+        radius: 0.028
+      }
+    ],
+    constraints: {
+      avoidObstacle: true,
+      timeoutMs
+    },
+    input: {
+      cueDirection: { x: 1, y: 0.1 }
+    }
+  });
+}
+
 describe("solveMode2", () => {
-  it("reflects off cushions and stops on the first non-cue-ball collision", () => {
+  it("reflects off cue-center bounds before contacting the target", () => {
     const scene = loadScene("mode2-direction");
 
     const first = solveMode2(scene);
@@ -33,14 +59,65 @@ describe("solveMode2", () => {
     expect(first.elapsedMs).toBeGreaterThanOrEqual(0);
     expect(first.candidates.length).toBe(1);
     expect(first.candidates[0].blocked).toBe(false);
+    expect(first.candidates[0].rejectReason).toBeUndefined();
     expect(first.candidates[0].cushions).toBe(1);
     expect(first.candidates[0].segments).toHaveLength(2);
-    expect(first.candidates[0].segments[0].to.x).toBeCloseTo(1);
+    expect(first.candidates[0].segments[0].to.x).toBeCloseTo(0.972, 6);
+    expect(first.candidates[0].segments[0].to.y).toBeGreaterThan(0.028);
+    expect(first.candidates[0].segments[0].to.y).toBeLessThan(0.972);
     expect(first.candidates[0].segments.at(-1)?.event).toBe("contact");
     expect(first.candidates[0].segments.map((segment) => segment.event)).toEqual([
       "start",
       "contact"
     ]);
     expect(summarizeCandidate(first.candidates[0])).toEqual(summarizeCandidate(second.candidates[0]));
+  });
+
+  it("terminates on the travel-distance threshold when no contact occurs", () => {
+    const scene = makeTimeoutRequest(2000);
+
+    const result = solveMode2(scene);
+
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].rejectReason).toBe("travel-distance-threshold");
+    expect(result.candidates[0].segments.at(-1)?.event).toBe("cushion");
+    expect(result.candidates[0].segments.some((segment) => segment.event === "contact")).toBe(false);
+  });
+
+  it("terminates immediately when timeoutMs is zero", () => {
+    const scene = makeTimeoutRequest(0);
+
+    const result = solveMode2(scene);
+
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].rejectReason).toBe("timeout");
+  });
+
+  it("throws a clear error when cueDirection is missing at the solver level", () => {
+    expect(() =>
+      solveMode2(
+        {
+          mode: "mode2_cue_direction",
+          table: {
+            width: 2.84,
+            height: 1.42,
+            pocketR: 0.06
+          },
+          balls: [
+            {
+              id: "cue",
+              role: "cue",
+              pos: { x: 0.2, y: 0.4 },
+              radius: 0.028
+            }
+          ],
+          constraints: {
+            avoidObstacle: true,
+            timeoutMs: 2000
+          },
+          input: {}
+        } as SolveRequest
+      )
+    ).toThrow(/cueDirection/i);
   });
 });

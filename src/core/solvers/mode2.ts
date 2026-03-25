@@ -2,6 +2,7 @@ import { distancePointToSegment, segment, segmentLength } from "../geometry";
 import type { Ball, CandidatePath, PathSegment, SolveRequest, SolveResponse, Vec2 } from "../types";
 
 type CushionSide = "left" | "right" | "top" | "bottom";
+type RejectReason = "timeout" | "travel-distance-threshold";
 
 type RayHit =
   | {
@@ -18,6 +19,8 @@ type RayHit =
 
 const EPSILON = 1e-9;
 const MAX_BOUNCES = 16;
+const DEFAULT_TIMEOUT_MS = 2000;
+const DEFAULT_MAX_TRAVEL_DISTANCE = 2.5;
 const DEFAULT_MIN_CLEARANCE = 1;
 
 export function solveMode2(req: SolveRequest): SolveResponse {
@@ -27,8 +30,17 @@ export function solveMode2(req: SolveRequest): SolveResponse {
 
   const startedAt = Date.now();
   const cue = getBall(req.balls, "cue");
-  const direction = normalize(req.input.cueDirection as Vec2);
-  const candidate = simulateTrajectory(cue, direction, req.balls.filter((ball) => ball.role !== "cue"));
+  const cueDirection = getCueDirection(req);
+  const direction = normalize(cueDirection);
+  const timeoutMs = req.constraints.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const candidate = simulateTrajectory({
+    cue,
+    initialDirection: direction,
+    balls: req.balls.filter((ball) => ball.role !== "cue"),
+    timeoutMs,
+    startedAt,
+    maxTravelDistance: DEFAULT_MAX_TRAVEL_DISTANCE
+  });
 
   return {
     solver: "local-geo",
@@ -37,34 +49,57 @@ export function solveMode2(req: SolveRequest): SolveResponse {
   };
 }
 
-function simulateTrajectory(cue: Ball, initialDirection: Vec2, balls: Ball[]): CandidatePath {
+type SimulationArgs = {
+  cue: Ball;
+  initialDirection: Vec2;
+  balls: Ball[];
+  timeoutMs: number;
+  startedAt: number;
+  maxTravelDistance: number;
+};
+
+function simulateTrajectory(args: SimulationArgs): CandidatePath {
   const segments: PathSegment[] = [];
-  let current = { ...cue.pos };
-  let direction = { ...initialDirection };
+  const cueRadius = args.cue.radius;
+  let current = { ...args.cue.pos };
+  let direction = { ...args.initialDirection };
   let cushions = 0;
   let travelDistance = 0;
   let minClearance = Number.POSITIVE_INFINITY;
+  let rejectReason: RejectReason | undefined;
+
+  if (args.timeoutMs <= 0) {
+    return buildRejectedCandidate(args.cue, args.balls, "timeout");
+  }
 
   for (let bounce = 0; bounce < MAX_BOUNCES; bounce += 1) {
-    const hit = findNextHit(current, direction, cue.radius, balls);
-
-    if (!hit) {
-      const endPoint = advanceToTableEdge(current, direction);
-      appendSegment(segments, current, endPoint, segments.length === 0 ? "start" : "end");
-      travelDistance += segmentLength(segment(current, endPoint));
+    if (Date.now() - args.startedAt >= args.timeoutMs) {
+      rejectReason = "timeout";
       break;
     }
 
-    const event: PathSegment["event"] = segments.length === 0 ? "start" : hit.kind === "cushion" ? "cushion" : "contact";
-    appendSegment(segments, current, hit.point, event);
+    const hit = findNextHit(current, direction, cueRadius, args.balls);
+
+    if (!hit) {
+      appendSegment(segments, current, advanceToTableEdge(current, direction, cueRadius), segments.length === 0 ? "start" : "end");
+      break;
+    }
+
+    appendSegment(segments, current, hit.point, segments.length === 0 ? "start" : hit.kind === "cushion" ? "cushion" : "contact");
     travelDistance += segmentLength(segment(current, hit.point));
-    minClearance = Math.min(minClearance, computeMinClearance(segments[segments.length - 1], cue.radius, balls));
+    minClearance = Math.min(minClearance, computeMinClearance(segments[segments.length - 1], cueRadius, args.balls));
 
     if (hit.kind === "ball") {
       break;
     }
 
     cushions += 1;
+
+    if (travelDistance >= args.maxTravelDistance) {
+      rejectReason = "travel-distance-threshold";
+      break;
+    }
+
     current = hit.point;
     direction = reflect(direction, hit.side);
   }
@@ -75,9 +110,10 @@ function simulateTrajectory(cue: Ball, initialDirection: Vec2, balls: Ball[]): C
 
   return {
     id: `mode2-${cushions}-${segments.length}`,
-    score: rankScore(cushions, travelDistance, minClearance),
+    score: rankScore(cushions, travelDistance, minClearance, rejectReason),
     cushions,
     blocked: false,
+    rejectReason,
     segments,
     metrics: {
       travelDistance,
@@ -85,6 +121,49 @@ function simulateTrajectory(cue: Ball, initialDirection: Vec2, balls: Ball[]): C
       estError: 0
     }
   };
+}
+
+function buildRejectedCandidate(cue: Ball, balls: Ball[], reason: RejectReason): CandidatePath {
+  const segmentStart = { ...cue.pos };
+  const minClearance = computeMinClearance(
+    {
+      from: segmentStart,
+      to: segmentStart,
+      event: "start"
+    },
+    cue.radius,
+    balls
+  );
+
+  return {
+    id: `mode2-rejected-${reason}`,
+    score: rankScore(0, 0, Number.isFinite(minClearance) ? minClearance : DEFAULT_MIN_CLEARANCE, reason),
+    cushions: 0,
+    blocked: false,
+    rejectReason: reason,
+    segments: [
+      {
+        from: segmentStart,
+        to: segmentStart,
+        event: "start"
+      }
+    ],
+    metrics: {
+      travelDistance: 0,
+      minClearance: Number.isFinite(minClearance) ? minClearance : DEFAULT_MIN_CLEARANCE,
+      estError: 0
+    }
+  };
+}
+
+function getCueDirection(req: SolveRequest): Vec2 {
+  const cueDirection = req.input?.cueDirection;
+
+  if (!cueDirection || !Number.isFinite(cueDirection.x) || !Number.isFinite(cueDirection.y)) {
+    throw new Error("mode2 requires cueDirection");
+  }
+
+  return cueDirection;
 }
 
 function findNextHit(current: Vec2, direction: Vec2, cueRadius: number, balls: Ball[]): RayHit | null {
@@ -106,7 +185,7 @@ function findNextHit(current: Vec2, direction: Vec2, cueRadius: number, balls: B
     }
   }
 
-  const cushionHit = intersectRayWithTable(current, direction);
+  const cushionHit = intersectRayWithTable(current, direction, cueRadius);
 
   if (bestBall && (!cushionHit || bestBall.t <= cushionHit.t + EPSILON)) {
     return bestBall;
@@ -142,37 +221,41 @@ function intersectRayCircle(origin: Vec2, direction: Vec2, ball: Ball, cueRadius
   };
 }
 
-function intersectRayWithTable(origin: Vec2, direction: Vec2): RayHit | null {
+function intersectRayWithTable(origin: Vec2, direction: Vec2, cueRadius: number): RayHit | null {
+  const minX = cueRadius;
+  const maxX = 1 - cueRadius;
+  const minY = cueRadius;
+  const maxY = 1 - cueRadius;
   const candidates: RayHit[] = [];
 
   if (direction.x > EPSILON) {
-    const t = (1 - origin.x) / direction.x;
+    const t = (maxX - origin.x) / direction.x;
     if (t > EPSILON) {
-      candidates.push({ kind: "cushion", t, point: { x: 1, y: origin.y + direction.y * t }, side: "right" });
+      candidates.push({ kind: "cushion", t, point: { x: maxX, y: origin.y + direction.y * t }, side: "right" });
     }
   } else if (direction.x < -EPSILON) {
-    const t = (0 - origin.x) / direction.x;
+    const t = (minX - origin.x) / direction.x;
     if (t > EPSILON) {
-      candidates.push({ kind: "cushion", t, point: { x: 0, y: origin.y + direction.y * t }, side: "left" });
+      candidates.push({ kind: "cushion", t, point: { x: minX, y: origin.y + direction.y * t }, side: "left" });
     }
   }
 
   if (direction.y > EPSILON) {
-    const t = (1 - origin.y) / direction.y;
+    const t = (maxY - origin.y) / direction.y;
     if (t > EPSILON) {
-      candidates.push({ kind: "cushion", t, point: { x: origin.x + direction.x * t, y: 1 }, side: "bottom" });
+      candidates.push({ kind: "cushion", t, point: { x: origin.x + direction.x * t, y: maxY }, side: "bottom" });
     }
   } else if (direction.y < -EPSILON) {
-    const t = (0 - origin.y) / direction.y;
+    const t = (minY - origin.y) / direction.y;
     if (t > EPSILON) {
-      candidates.push({ kind: "cushion", t, point: { x: origin.x + direction.x * t, y: 0 }, side: "top" });
+      candidates.push({ kind: "cushion", t, point: { x: origin.x + direction.x * t, y: minY }, side: "top" });
     }
   }
 
   let best: RayHit | null = null;
 
   for (const candidate of candidates) {
-    if (!isInsideTable(candidate.point)) {
+    if (!isInsideTable(candidate.point, cueRadius)) {
       continue;
     }
 
@@ -184,8 +267,8 @@ function intersectRayWithTable(origin: Vec2, direction: Vec2): RayHit | null {
   return best;
 }
 
-function advanceToTableEdge(origin: Vec2, direction: Vec2): Vec2 {
-  const hit = intersectRayWithTable(origin, direction);
+function advanceToTableEdge(origin: Vec2, direction: Vec2, cueRadius: number): Vec2 {
+  const hit = intersectRayWithTable(origin, direction, cueRadius);
 
   return hit ? hit.point : { ...origin };
 }
@@ -230,8 +313,13 @@ function normalize(value: Vec2): Vec2 {
   };
 }
 
-function isInsideTable(point: Vec2): boolean {
-  return point.x >= -EPSILON && point.x <= 1 + EPSILON && point.y >= -EPSILON && point.y <= 1 + EPSILON;
+function isInsideTable(point: Vec2, cueRadius: number): boolean {
+  return (
+    point.x >= cueRadius - EPSILON &&
+    point.x <= 1 - cueRadius + EPSILON &&
+    point.y >= cueRadius - EPSILON &&
+    point.y <= 1 - cueRadius + EPSILON
+  );
 }
 
 function reflect(direction: Vec2, side: CushionSide): Vec2 {
@@ -245,8 +333,10 @@ function reflect(direction: Vec2, side: CushionSide): Vec2 {
   }
 }
 
-function rankScore(cushions: number, travelDistance: number, minClearance: number): number {
-  return 1_000_000 - cushions * 1_000 - travelDistance * 100 + minClearance * 10;
+function rankScore(cushions: number, travelDistance: number, minClearance: number, rejectReason?: RejectReason): number {
+  const base = rejectReason ? -1_000_000 : 1_000_000;
+
+  return base - cushions * 1_000 - travelDistance * 100 + minClearance * 10;
 }
 
 function getBall(balls: Ball[], role: Ball["role"]): Ball {
