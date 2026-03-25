@@ -80,7 +80,7 @@ describe("solveMode2", () => {
 
     expect(result.candidates).toHaveLength(1);
     expect(result.candidates[0].rejectReason).toBe("travel-distance-threshold");
-    expect(result.candidates[0].segments.at(-1)?.event).toBe("cushion");
+    expect(result.candidates[0].metrics.travelDistance).toBeLessThanOrEqual(2.5);
     expect(result.candidates[0].segments.some((segment) => segment.event === "contact")).toBe(false);
   });
 

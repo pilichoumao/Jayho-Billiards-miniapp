@@ -81,12 +81,36 @@ function simulateTrajectory(args: SimulationArgs): CandidatePath {
     const hit = findNextHit(current, direction, cueRadius, args.balls);
 
     if (!hit) {
-      appendSegment(segments, current, advanceToTableEdge(current, direction, cueRadius), segments.length === 0 ? "start" : "end");
+      const endPoint = advanceToTableEdge(current, direction, cueRadius);
+      const nextDistance = segmentLength(segment(current, endPoint));
+
+      if (travelDistance + nextDistance > args.maxTravelDistance + EPSILON) {
+        const clampedPoint = clampPointAtDistance(current, direction, args.maxTravelDistance - travelDistance);
+
+        appendSegment(segments, current, clampedPoint, segments.length === 0 ? "start" : "end");
+        travelDistance = args.maxTravelDistance;
+        rejectReason = "travel-distance-threshold";
+      } else {
+        appendSegment(segments, current, endPoint, segments.length === 0 ? "start" : "end");
+        travelDistance += nextDistance;
+      }
+
+      break;
+    }
+
+    const nextDistance = segmentLength(segment(current, hit.point));
+
+    if (travelDistance + nextDistance > args.maxTravelDistance + EPSILON) {
+      const clampedPoint = clampPointAtDistance(current, direction, args.maxTravelDistance - travelDistance);
+
+      appendSegment(segments, current, clampedPoint, segments.length === 0 ? "start" : "end");
+      travelDistance = args.maxTravelDistance;
+      rejectReason = "travel-distance-threshold";
       break;
     }
 
     appendSegment(segments, current, hit.point, segments.length === 0 ? "start" : hit.kind === "cushion" ? "cushion" : "contact");
-    travelDistance += segmentLength(segment(current, hit.point));
+    travelDistance += nextDistance;
     minClearance = Math.min(minClearance, computeMinClearance(segments[segments.length - 1], cueRadius, args.balls));
 
     if (hit.kind === "ball") {
@@ -94,12 +118,6 @@ function simulateTrajectory(args: SimulationArgs): CandidatePath {
     }
 
     cushions += 1;
-
-    if (travelDistance >= args.maxTravelDistance) {
-      rejectReason = "travel-distance-threshold";
-      break;
-    }
-
     current = hit.point;
     direction = reflect(direction, hit.side);
   }
@@ -271,6 +289,10 @@ function advanceToTableEdge(origin: Vec2, direction: Vec2, cueRadius: number): V
   const hit = intersectRayWithTable(origin, direction, cueRadius);
 
   return hit ? hit.point : { ...origin };
+}
+
+function clampPointAtDistance(origin: Vec2, direction: Vec2, distance: number): Vec2 {
+  return advancePoint(origin, direction, Math.max(0, distance));
 }
 
 function appendSegment(segments: PathSegment[], from: Vec2, to: Vec2, event: PathSegment["event"]): void {
