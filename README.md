@@ -2,6 +2,10 @@
 
 A WeChat mini program prototype for billiards shot solving.
 
+## Requirements
+
+- Node.js `>=18.18.0`
+
 ## Install
 
 ```bash

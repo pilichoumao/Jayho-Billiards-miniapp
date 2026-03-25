@@ -115,7 +115,7 @@ Page({
     try {
       const result = solveShot(createRequest(page.data.mode));
 
-      if (result.candidates.length === 0) {
+      if (!hasUsableCandidate(result)) {
         page.setData({
           resultTitle: "",
           resultLines: [],
@@ -155,6 +155,10 @@ function createRequest(mode: SolveMode): SolveRequest {
       pos: { ...ball.pos }
     }))
   };
+}
+
+function hasUsableCandidate(result: SolveResponse): boolean {
+  return result.candidates.some((candidate) => !candidate.blocked && !candidate.rejectReason);
 }
 
 function summarizeResult(mode: SolveMode, result: SolveResponse): { title: string; lines: string[] } {
