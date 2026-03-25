@@ -1,0 +1,44 @@
+{
+  "mode": "mode1_contact_paths",
+  "table": {
+    "width": 2.84,
+    "height": 1.42,
+    "pocketR": 0.06
+  },
+  "balls": [
+    {
+      "id": "cue",
+      "role": "cue",
+      "pos": {
+        "x": 0.18,
+        "y": 0.24
+      },
+      "radius": 0.028
+    },
+    {
+      "id": "target",
+      "role": "target",
+      "pos": {
+        "x": 0.78,
+        "y": 0.64
+      },
+      "radius": 0.028
+    },
+    {
+      "id": "obstacle-1",
+      "role": "obstacle",
+      "pos": {
+        "x": 0.47,
+        "y": 0.46
+      },
+      "radius": 0.028
+    }
+  ],
+  "constraints": {
+    "avoidObstacle": true,
+    "timeoutMs": 2000,
+    "cushionMin": 2,
+    "cushionMax": 5
+  },
+  "input": {}
+}
