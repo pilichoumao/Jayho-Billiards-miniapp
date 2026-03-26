@@ -85,8 +85,7 @@ export function resolveSelectedCandidate(
   const requested = findCandidateById(result, requestedId);
   if (requested) return requested;
 
-  const feasible = result.candidates.find((candidate) => !candidate.blocked && !candidate.rejectReason);
-  return feasible ?? result.candidates[0];
+  return result.candidates.find((candidate) => !candidate.blocked && !candidate.rejectReason);
 }
 
 export function extractRoutePoints(segments: PathSegment[]): Vec2[] {
@@ -153,4 +152,3 @@ function formatPercent(value: number): string {
 
   return `${parseFloat(scaled.toFixed(3))}%`;
 }
-
