@@ -26,11 +26,7 @@ type PageInstance = {
   setData(_data: Partial<IndexPageData>): void;
 };
 
-const NO_SOLUTION_TEXT = "未找到可用结果，请调整参数后重试。";
-const DEFAULT_STAGE_RECT_PX: StageRectPx = { left: 0, top: 0, width: 1, height: 1 };
-
-declare const Page: (_options: Record<string, unknown>) => void;
-declare const wx: {
+type WxLike = {
   createSelectorQuery(): {
     select(_selector: string): {
       boundingClientRect(_callback: (_rect: { left: number; top: number; width: number; height: number } | null) => void): {
@@ -39,6 +35,11 @@ declare const wx: {
     };
   };
 };
+
+const NO_SOLUTION_TEXT = "未找到可用结果，请调整参数后重试。";
+const DEFAULT_STAGE_RECT_PX: StageRectPx = { left: 0, top: 0, width: 1, height: 1 };
+
+declare const Page: (_options: Record<string, unknown>) => void;
 
 const MODE1_REQUEST: SolveRequest = {
   mode: "mode1_contact_paths",
@@ -123,9 +124,14 @@ Page({
     this.syncStageRect();
   },
 
+  onResize() {
+    this.syncStageRect();
+  },
+
   syncStageRect() {
     const page = this as PageInstance;
-    const query = wx?.createSelectorQuery?.();
+    const wxApi = (globalThis as typeof globalThis & { wx?: WxLike }).wx;
+    const query = wxApi?.createSelectorQuery?.();
     if (!query) return;
 
     query
@@ -217,9 +223,10 @@ Page({
       return;
     }
 
-    const summary = summarizeResult(page.data.mode, result, nextId);
+    const resolvedCandidateId = resolveSelectedCandidate(result, nextId)?.id ?? nextId;
+    const summary = summarizeResult(page.data.mode, result, resolvedCandidateId);
     page.setData({
-      selectedCandidateId: nextId,
+      selectedCandidateId: resolvedCandidateId,
       resultTitle: summary.title,
       resultLines: summary.lines
     });
@@ -265,12 +272,17 @@ function getModeTemplate(mode: SolveMode): SolveRequest {
 function createRequest(mode: SolveMode, editBalls: Ball[]): SolveRequest {
   const source = getModeTemplate(mode);
   const balls = editBalls.length > 0 ? editBalls : source.balls;
+  const input = { ...source.input };
+
+  if (source.input.cueDirection) {
+    input.cueDirection = { ...source.input.cueDirection };
+  }
 
   return {
     ...source,
     table: { ...source.table },
     constraints: { ...source.constraints },
-    input: source.input.cueDirection ? { cueDirection: { ...source.input.cueDirection } } : {},
+    input,
     balls: balls.map((ball) => ({
       ...ball,
       pos: { ...ball.pos }
@@ -284,7 +296,7 @@ function hasUsableCandidate(result: SolveResponse): boolean {
 
 function summarizeResult(mode: SolveMode, result: SolveResponse, selectedCandidateId?: string): { title: string; lines: string[] } {
   const lines = [`Candidates: ${result.candidates.length}`, `Solver: ${result.solver}`, `Elapsed: ${result.elapsedMs} ms`];
-  const selectedCandidate = resolveSelectedCandidate(result, selectedCandidateId) ?? result.candidates[0];
+  const selectedCandidate = resolveSelectedCandidate(result, selectedCandidateId);
 
   if (selectedCandidate) {
     lines.push(...summarizeCandidate(selectedCandidate));
@@ -318,20 +330,26 @@ function cloneBalls(balls: Ball[]): Ball[] {
 }
 
 function extractTouch(event: {
-  touches?: Array<{ pageX: number; pageY: number }>;
-  changedTouches?: Array<{ pageX: number; pageY: number }>;
-}): { pageX: number; pageY: number } | undefined {
+  touches?: Array<{ clientX?: number; clientY?: number; pageX?: number; pageY?: number }>;
+  changedTouches?: Array<{ clientX?: number; clientY?: number; pageX?: number; pageY?: number }>;
+}): { clientX: number; clientY: number } | undefined {
   const candidate = event.changedTouches?.[0] ?? event.touches?.[0];
   if (!candidate) return undefined;
-  if (!Number.isFinite(candidate.pageX) || !Number.isFinite(candidate.pageY)) return undefined;
-  return { pageX: candidate.pageX, pageY: candidate.pageY };
+
+  const clientX = candidate.clientX ?? candidate.pageX;
+  const clientY = candidate.clientY ?? candidate.pageY;
+
+  if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return undefined;
+  return { clientX, clientY };
 }
 
-function applyBallDrag(page: PageInstance, touch: { pageX: number; pageY: number }): void {
+function applyBallDrag(page: PageInstance, touch: { clientX: number; clientY: number }): void {
   const draggingBallId = page.data.draggingBallId;
   if (!draggingBallId) return;
 
   const stage = page.data.tableStageRectPx ?? DEFAULT_STAGE_RECT_PX;
+  if (stage.width <= 1 || stage.height <= 1) return;
+
   const nextBalls = cloneBalls(page.data.editBalls);
   const index = nextBalls.findIndex((ball) => ball.id === draggingBallId);
   if (index < 0) return;
