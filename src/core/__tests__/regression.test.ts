@@ -227,7 +227,7 @@ describe("index page error mapping", () => {
       solveShot
     }));
 
-    await import("../../../miniprogram/pages/index/index");
+    await import("../../../miniprogram/pages/index/index.ts");
 
     const page = {
       data: {
@@ -268,7 +268,7 @@ describe("index page error mapping", () => {
       solveShot
     }));
 
-    await import("../../../miniprogram/pages/index/index");
+    await import("../../../miniprogram/pages/index/index.ts");
 
     const page = {
       data: {
