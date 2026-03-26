@@ -8,7 +8,6 @@ type IndexPageData = {
   editBalls: Ball[];
   tableStageRectPx: StageRectPx;
   draggingBallId?: string;
-  solveRequest?: SolveRequest;
   solveResult?: SolveResponse;
   selectedCandidateId?: string;
   resultTitle: string;
@@ -113,7 +112,6 @@ Page({
     editBalls: cloneBalls(MODE1_REQUEST.balls),
     tableStageRectPx: { ...DEFAULT_STAGE_RECT_PX },
     draggingBallId: undefined,
-    solveRequest: undefined,
     solveResult: undefined,
     selectedCandidateId: undefined,
     resultTitle: "",
@@ -155,7 +153,6 @@ Page({
       mode: nextMode,
       editBalls: cloneBalls(getModeTemplate(nextMode).balls),
       draggingBallId: undefined,
-      solveRequest: undefined,
       solveResult: undefined,
       selectedCandidateId: undefined,
       resultTitle: "",
@@ -173,7 +170,6 @@ Page({
 
       if (!hasUsableCandidate(result)) {
         page.setData({
-          solveRequest: undefined,
           solveResult: undefined,
           selectedCandidateId: undefined,
           resultTitle: "",
@@ -189,7 +185,6 @@ Page({
       const summary = summarizeResult(page.data.mode, result, selectedCandidateId);
 
       page.setData({
-        solveRequest: request,
         solveResult: result,
         selectedCandidateId,
         resultTitle: summary.title,
@@ -198,7 +193,6 @@ Page({
       });
     } catch (error) {
       page.setData({
-        solveRequest: undefined,
         solveResult: undefined,
         selectedCandidateId: undefined,
         resultTitle: "",

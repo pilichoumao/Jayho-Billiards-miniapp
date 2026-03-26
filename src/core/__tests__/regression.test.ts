@@ -327,6 +327,29 @@ describe("index page error mapping", () => {
     expect((page.data as Record<string, unknown>).resultLines).toBe(previousLines);
   });
 
+  it("mode changes update the edit model without calling solveShot", async () => {
+    const solveShot = vi.fn().mockReturnValue({
+      solver: "local-geo",
+      elapsedMs: 1,
+      candidates: []
+    });
+
+    const { importPage } = installIndexPage(solveShot);
+    const options = await importPage();
+
+    const handleModeChange = (options as { handleModeChange: (_event: unknown) => void }).handleModeChange;
+    const page = createPageHarness((options as { data: Record<string, unknown> }).data);
+
+    handleModeChange.call(page, { detail: { value: "mode2_cue_direction" } });
+
+    expect(solveShot).not.toHaveBeenCalled();
+    expect((page.data as Record<string, unknown>).mode).toBe("mode2_cue_direction");
+    expect((page.data as Record<string, unknown>).editBalls).toEqual([
+      { id: "cue", role: "cue", pos: { x: 0.2, y: 0.4 }, radius: 0.028 },
+      { id: "target", role: "target", pos: { x: 0.6, y: 0.514 }, radius: 0.028 }
+    ]);
+  });
+
   it("handleCalculate uses current edited ball positions and mode2 preserves cueDirection", async () => {
     const mode2Scene = loadScene("mode2-direction");
     const solveShot = vi.fn().mockReturnValue(solveMode2(mode2Scene));
