@@ -46,5 +46,39 @@ describe("table-view helpers", () => {
     expect(model.selectedCandidate?.id).toBe("candidate-b");
     expect(model.selectedCandidate?.segments).toHaveLength(3);
   });
-});
 
+  it("falls back to the first feasible candidate when the requested one is unusable", () => {
+    const blockedResponse = {
+      ...mockResponse,
+      candidates: [
+        {
+          ...mockResponse.candidates[0],
+          blocked: true,
+          rejectReason: "blocked by obstacle"
+        },
+        mockResponse.candidates[1]
+      ]
+    } as const;
+
+    const model = buildCandidateRenderModel(mockRequest, blockedResponse, "candidate-a");
+
+    expect(model.selectedCandidate?.id).toBe("candidate-b");
+  });
+
+  it("returns no selected candidate when all candidates are unusable", () => {
+    const blockedResponse = {
+      ...mockResponse,
+      candidates: mockResponse.candidates.map((candidate) => ({
+        ...candidate,
+        blocked: true,
+        rejectReason: "blocked by obstacle"
+      }))
+    } as const;
+
+    const model = buildCandidateRenderModel(mockRequest, blockedResponse, "candidate-a");
+
+    expect(model.selectedCandidate).toBeUndefined();
+    expect(model.routePoints).toHaveLength(0);
+    expect(model.markers).toHaveLength(0);
+  });
+});

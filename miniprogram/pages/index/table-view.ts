@@ -8,8 +8,8 @@ export type StageRectPx = {
 };
 
 export type StageGeometry = StageRectPx & {
-  tableToStagePx(point: Vec2): Vec2;
-  stagePxToTable(point: Vec2): Vec2;
+  tableToStagePx(_point: Vec2): Vec2;
+  stagePxToTable(_point: Vec2): Vec2;
 };
 
 export type PercentPosition = {
@@ -83,7 +83,7 @@ export function resolveSelectedCandidate(
   requestedId?: string
 ): CandidatePath | undefined {
   const requested = findCandidateById(result, requestedId);
-  if (requested) return requested;
+  if (requested && !requested.blocked && !requested.rejectReason) return requested;
 
   return result.candidates.find((candidate) => !candidate.blocked && !candidate.rejectReason);
 }
