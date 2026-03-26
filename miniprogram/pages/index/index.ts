@@ -31,6 +31,15 @@ const NO_SOLUTION_TEXT = "未找到可用结果，请调整参数后重试。";
 const DEFAULT_STAGE_RECT_PX: StageRectPx = { left: 0, top: 0, width: 1, height: 1 };
 
 declare const Page: (_options: Record<string, unknown>) => void;
+declare const wx: {
+  createSelectorQuery(): {
+    select(_selector: string): {
+      boundingClientRect(_callback: (_rect: { left: number; top: number; width: number; height: number } | null) => void): {
+        exec(_callback?: () => void): void;
+      };
+    };
+  };
+};
 
 const MODE1_REQUEST: SolveRequest = {
   mode: "mode1_contact_paths",
@@ -110,6 +119,32 @@ Page({
     resultTitle: "",
     resultLines: [],
     errorText: ""
+  },
+
+  onReady() {
+    this.syncStageRect();
+  },
+
+  syncStageRect() {
+    const page = this as PageInstance;
+    const query = wx?.createSelectorQuery?.();
+    if (!query) return;
+
+    query
+      .select("#table-stage")
+      .boundingClientRect((rect) => {
+        if (!rect) return;
+
+        page.setData({
+          tableStageRectPx: {
+            left: rect.left ?? 0,
+            top: rect.top ?? 0,
+            width: rect.width ?? DEFAULT_STAGE_RECT_PX.width,
+            height: rect.height ?? DEFAULT_STAGE_RECT_PX.height
+          }
+        });
+      })
+      .exec();
   },
 
   handleModeChange(event: ChangeEvent) {

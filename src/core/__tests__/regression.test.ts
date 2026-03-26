@@ -336,22 +336,34 @@ describe("index page error mapping", () => {
 
     const handleModeChange = (options as { handleModeChange: (_event: unknown) => void }).handleModeChange;
     const handleCalculate = (options as { handleCalculate: () => void }).handleCalculate;
+    const handleBallDragStart = (options as { handleBallDragStart: (_event: unknown) => void }).handleBallDragStart;
+    const handleBallDragEnd = (options as { handleBallDragEnd: (_event: unknown) => void }).handleBallDragEnd;
 
     const page = createPageHarness((options as { data: Record<string, unknown> }).data);
 
     handleModeChange.call(page, { detail: { value: "mode2_cue_direction" } });
-    const editedBalls: Ball[] = [
-      { id: "cue", role: "cue", pos: { x: 0.33, y: 0.44 }, radius: 0.028 },
-      { id: "target", role: "target", pos: { x: 0.66, y: 0.55 }, radius: 0.028 }
-    ];
-    (page.data as Record<string, unknown>).editBalls = editedBalls;
+    (page.data as Record<string, unknown>).tableStageRectPx = { left: 0, top: 0, width: 100, height: 100 };
+
+    handleBallDragStart.call(page, {
+      currentTarget: { dataset: { ballId: "cue" } },
+      touches: [{ pageX: 33, pageY: 44 }]
+    });
+    handleBallDragEnd.call(page, { changedTouches: [{ pageX: 33, pageY: 44 }] });
+    handleBallDragStart.call(page, {
+      currentTarget: { dataset: { ballId: "target" } },
+      touches: [{ pageX: 66, pageY: 55 }]
+    });
+    handleBallDragEnd.call(page, { changedTouches: [{ pageX: 66, pageY: 55 }] });
 
     handleCalculate.call(page);
     expect(solveShot).toHaveBeenCalledTimes(1);
 
     const request = solveShot.mock.calls[0]?.[0] as SolveRequest;
     expect(request.mode).toBe("mode2_cue_direction");
-    expect(request.balls).toEqual(editedBalls);
+    expect(request.balls).toEqual([
+      { id: "cue", role: "cue", pos: { x: 0.33, y: 0.44 }, radius: 0.028 },
+      { id: "target", role: "target", pos: { x: 0.66, y: 0.55 }, radius: 0.028 }
+    ]);
     expect(request.input.cueDirection).toEqual({ x: 1, y: 0.1 });
   });
 

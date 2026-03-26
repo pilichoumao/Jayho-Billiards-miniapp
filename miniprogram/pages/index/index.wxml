@@ -5,6 +5,22 @@
     <text class="hero-copy">Switch between a contact-path search and a cue-direction trajectory, then run the local geometry solver.</text>
   </view>
 
+  <view id="table-stage" class="table-stage">
+    <view class="table-stage__frame">
+      <view class="table-stage__surface"></view>
+      <view
+        wx:for="{{editBalls}}"
+        wx:key="id"
+        class="ball ball--{{item.role}}"
+        style="left: {{item.pos.x * 100}}%; top: {{item.pos.y * 100}}%;"
+        data-ball-id="{{item.id}}"
+        bindtouchstart="handleBallDragStart"
+        bindtouchmove="handleBallDragMove"
+        bindtouchend="handleBallDragEnd"
+      ></view>
+    </view>
+  </view>
+
   <view class="panel">
     <text class="panel-title">Mode</text>
     <radio-group class="mode-list" bindchange="handleModeChange">
