@@ -61,8 +61,14 @@ export function mapStagePixelToTablePoint(stage: StageRectPx, pixel: Vec2): Vec2
   return createStageGeometry(stage).stagePxToTable(pixel);
 }
 
-export function mapTouchToTablePoint(stage: StageRectPx, touch: { pageX: number; pageY: number }): Vec2 {
-  return mapStagePixelToTablePoint(stage, { x: touch.pageX, y: touch.pageY });
+export function mapTouchToTablePoint(
+  stage: StageRectPx,
+  touch: { clientX?: number; clientY?: number; pageX?: number; pageY?: number }
+): Vec2 {
+  const x = touch.clientX ?? touch.pageX ?? 0;
+  const y = touch.clientY ?? touch.pageY ?? 0;
+
+  return mapStagePixelToTablePoint(stage, { x, y });
 }
 
 export function clampTablePointForBall(point: Vec2, ball: Pick<Ball, "radius">): Vec2 {
