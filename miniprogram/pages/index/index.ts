@@ -9,7 +9,6 @@ type IndexPageData = {
   editBalls: Ball[];
   tableStageRectPx: StageRectPx;
   draggingBallId?: string;
-  solveResult?: SolveResponse;
   solveRenderModel?: ReturnType<typeof buildCandidateRenderModel>;
   selectedCandidateId?: string;
   resultTitle: string;
@@ -115,7 +114,6 @@ Page({
     editBalls: cloneBalls(MODE1_REQUEST.balls),
     tableStageRectPx: { ...DEFAULT_STAGE_RECT_PX },
     draggingBallId: undefined,
-    solveResult: undefined,
     solveRenderModel: undefined,
     selectedCandidateId: undefined,
     resultTitle: "",
@@ -162,7 +160,6 @@ Page({
       mode: nextMode,
       editBalls: cloneBalls(getModeTemplate(nextMode).balls),
       draggingBallId: undefined,
-      solveResult: undefined,
       solveRenderModel: undefined,
       selectedCandidateId: undefined,
       resultTitle: "",
@@ -180,7 +177,6 @@ Page({
 
       if (!hasUsableCandidate(result)) {
         page.setData({
-          solveResult: undefined,
           solveRenderModel: undefined,
           selectedCandidateId: undefined,
           resultTitle: "",
@@ -197,7 +193,6 @@ Page({
       const solveRenderModel = buildCandidateRenderModel(request, result, selectedCandidateId);
 
       page.setData({
-        solveResult: result,
         solveRenderModel,
         selectedCandidateId,
         resultTitle: summary.title,
@@ -206,7 +201,6 @@ Page({
       });
     } catch (error) {
       page.setData({
-        solveResult: undefined,
         solveRenderModel: undefined,
         selectedCandidateId: undefined,
         resultTitle: "",
@@ -225,7 +219,7 @@ Page({
 
     if (!nextId) return;
 
-    const result = page.data.solveResult;
+    const result = page.data.solveRenderModel?.response;
     if (!result) {
       page.setData({ selectedCandidateId: nextId });
       return;
@@ -373,7 +367,7 @@ function applyBallDrag(page: PageInstance, touch: { clientX: number; clientY: nu
     pos: { ...clamped }
   };
 
-  // Intentionally do not clear `solveResult` or re-run the solver. The overlay remains
+  // Intentionally do not clear the solve render model or re-run the solver. The overlay remains
   // until the next explicit calculate.
   page.setData({
     editBalls: nextBalls
