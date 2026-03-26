@@ -16,7 +16,7 @@
 - Create: `miniprogram/pages/index/table-view.ts`
 - Create: `src/core/__tests__/table-view.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -70,12 +70,12 @@ describe("table-view helpers", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- src/core/__tests__/table-view.test.ts -v`
 Expected: FAIL because `table-view.ts` does not exist yet.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Implement pure helpers for:
 - a stage geometry contract with `left`, `top`, `width`, and `height` in pixels plus forward/inverse mapping functions
@@ -87,12 +87,12 @@ Implement pure helpers for:
 - extracting route points from `segments` for rendering
 - extracting explicit markers for `cushion`, `contact`, and terminal/end points
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm test -- src/core/__tests__/table-view.test.ts -v`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add miniprogram/pages/index/table-view.ts src/core/__tests__/table-view.test.ts
@@ -105,7 +105,7 @@ git commit -m "feat: add table view helpers"
 - Modify: `miniprogram/pages/index/index.ts`
 - Modify: `src/core/__tests__/regression.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add regression coverage that verifies:
 - dragging or updating the edit model does not call `solveShot`
@@ -115,12 +115,12 @@ Add regression coverage that verifies:
 - dragging preserves the previous result overlay until the next explicit calculate
 - handlers can accept a touch event shape using `changedTouches[0].pageX/pageY` and/or `touches[0].pageX/pageY`
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- src/core/__tests__/regression.test.ts -v`
 Expected: FAIL because the page still has a single result-oriented state and no drag-specific behavior.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Refactor the page so it owns:
 - an edit-state ball list
@@ -133,12 +133,12 @@ For request composition, preserve the mode template and only replace the ball li
 - Mode 1: reuse the mode template and replace balls from edit state
 - Mode 2: reuse the mode template, replace balls from edit state, and preserve `input.cueDirection`
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm test -- src/core/__tests__/regression.test.ts -v`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add miniprogram/pages/index/index.ts src/core/__tests__/regression.test.ts
@@ -152,16 +152,16 @@ git commit -m "feat: separate edit and solve state on index page"
 - Modify: `miniprogram/pages/index/index.wxss`
 - Modify: `miniprogram/pages/index/index.ts` if view helpers need extra bindings
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 No automated test is required for markup-only changes. Instead, update the page structure so the new rendering helpers have obvious targets for balls, route segments, and candidate cards.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- src/core/__tests__/regression.test.ts -v`
 Expected: PASS; this step is only a pre-check before the UI rewrite.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Use a single `canvas` overlay for route segments and event markers, with WXML layers for the table surface, draggable balls, and result cards.
 Use `wx.createCanvasContext` with a dedicated `canvas-id`, measure `#table-stage` via `createSelectorQuery()`, and redraw after `onReady`, after successful `Calculate`, after candidate changes, and after drag move/end. Scale the backing store with `devicePixelRatio`.
@@ -184,12 +184,12 @@ Style:
 - make the table stage visually distinct from the control panel
 - ensure mobile widths still fit without horizontal scrolling
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm test -- src/core/__tests__/regression.test.ts -v`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add miniprogram/pages/index/index.ts miniprogram/pages/index/index.wxml miniprogram/pages/index/index.wxss miniprogram/pages/index/table-view.ts src/core/__tests__/regression.test.ts src/core/__tests__/table-view.test.ts
@@ -202,17 +202,17 @@ git commit -m "feat: add billiards table visualization"
 - Modify: `README.md` if the miniapp usage notes need a short update
 - Modify: `src/core/__tests__/adapter.test.ts` only if the page import paths change
 
-- [ ] **Step 1: Run the focused regression suite**
+- [x] **Step 1: Run the focused regression suite**
 
 Run: `npm test -- src/core/__tests__/regression.test.ts -v`
 Expected: PASS.
 
-- [ ] **Step 2: Run the full test suite**
+- [x] **Step 2: Run the full test suite**
 
 Run: `npm test`
 Expected: PASS.
 
-- [ ] **Step 3: Run lint**
+- [x] **Step 3: Run lint**
 
 Run: `npm run lint`
 Expected: PASS.
