@@ -1,0 +1,107 @@
+{
+  "mode": "mode1_contact_paths",
+  "table": {
+    "width": 2.84,
+    "height": 1.42,
+    "pocketR": 0.06
+  },
+  "balls": [
+    {
+      "id": "cue",
+      "role": "cue",
+      "pos": {
+        "x": 0.22,
+        "y": 0.22
+      },
+      "radius": 0.028
+    },
+    {
+      "id": "target",
+      "role": "target",
+      "pos": {
+        "x": 0.78,
+        "y": 0.68
+      },
+      "radius": 0.028
+    },
+    {
+      "id": "obstacle-e",
+      "role": "obstacle",
+      "pos": {
+        "x": 0.31,
+        "y": 0.22
+      },
+      "radius": 0.028
+    },
+    {
+      "id": "obstacle-ne",
+      "role": "obstacle",
+      "pos": {
+        "x": 0.2836,
+        "y": 0.2836
+      },
+      "radius": 0.028
+    },
+    {
+      "id": "obstacle-n",
+      "role": "obstacle",
+      "pos": {
+        "x": 0.22,
+        "y": 0.31
+      },
+      "radius": 0.028
+    },
+    {
+      "id": "obstacle-nw",
+      "role": "obstacle",
+      "pos": {
+        "x": 0.1564,
+        "y": 0.2836
+      },
+      "radius": 0.028
+    },
+    {
+      "id": "obstacle-w",
+      "role": "obstacle",
+      "pos": {
+        "x": 0.13,
+        "y": 0.22
+      },
+      "radius": 0.028
+    },
+    {
+      "id": "obstacle-sw",
+      "role": "obstacle",
+      "pos": {
+        "x": 0.1564,
+        "y": 0.1564
+      },
+      "radius": 0.028
+    },
+    {
+      "id": "obstacle-s",
+      "role": "obstacle",
+      "pos": {
+        "x": 0.22,
+        "y": 0.13
+      },
+      "radius": 0.028
+    },
+    {
+      "id": "obstacle-se",
+      "role": "obstacle",
+      "pos": {
+        "x": 0.2836,
+        "y": 0.1564
+      },
+      "radius": 0.028
+    }
+  ],
+  "constraints": {
+    "avoidObstacle": true,
+    "timeoutMs": 2000,
+    "cushionMin": 2,
+    "cushionMax": 5
+  },
+  "input": {}
+}
