@@ -315,6 +315,7 @@ describe("index page error mapping", () => {
     expect(solveShot).toHaveBeenCalledTimes(1);
 
     const previousSolveResult = (page.data as Record<string, unknown>).solveResult;
+    const previousSolveRenderModel = (page.data as Record<string, unknown>).solveRenderModel;
     const previousLines = (page.data as Record<string, unknown>).resultLines;
 
     handleBallDragStart.call(page, { currentTarget: { dataset: { ballId: "cue" } }, touches: [{ pageX: 10, pageY: 10 }] });
@@ -324,6 +325,7 @@ describe("index page error mapping", () => {
 
     expect(solveShot).toHaveBeenCalledTimes(1);
     expect((page.data as Record<string, unknown>).solveResult).toBe(previousSolveResult);
+    expect((page.data as Record<string, unknown>).solveRenderModel).toBe(previousSolveRenderModel);
     expect((page.data as Record<string, unknown>).resultLines).toBe(previousLines);
   });
 
