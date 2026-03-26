@@ -233,7 +233,8 @@ Page({
 
     const resolvedCandidateId = resolveSelectedCandidate(result, nextId)?.id ?? nextId;
     const summary = summarizeResult(page.data.mode, result, resolvedCandidateId);
-    const solveRenderModel = buildCandidateRenderModel(createRequest(page.data.mode, page.data.editBalls), result, resolvedCandidateId);
+    const solveRequest = page.data.solveRenderModel?.request ?? createRequest(page.data.mode, page.data.editBalls);
+    const solveRenderModel = buildCandidateRenderModel(solveRequest, result, resolvedCandidateId);
     page.setData({
       selectedCandidateId: resolvedCandidateId,
       solveRenderModel,

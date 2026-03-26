@@ -5,33 +5,35 @@
     <text class="hero-copy">Switch between a contact-path search and a cue-direction trajectory, then run the local geometry solver.</text>
   </view>
 
-  <view id="table-stage" class="table-stage">
+  <view class="table-stage">
     <view class="table-stage__frame">
       <view class="table-stage__surface"></view>
-      <view wx:if="{{solveRenderModel}}" class="table-stage__overlay">
+      <view id="table-stage" class="table-stage__playfield">
+        <view wx:if="{{solveRenderModel}}" class="table-stage__overlay">
+          <view
+            wx:for="{{solveRenderModel.routePoints}}"
+            wx:key="index"
+            class="route-point route-point--path"
+            style="left: {{item.x * 100}}%; top: {{item.y * 100}}%;"
+          ></view>
+          <view
+            wx:for="{{solveRenderModel.markers}}"
+            wx:key="id"
+            class="route-point route-point--{{item.kind}}"
+            style="left: {{item.point.x * 100}}%; top: {{item.point.y * 100}}%;"
+          ></view>
+        </view>
         <view
-          wx:for="{{solveRenderModel.routePoints}}"
-          wx:key="index"
-          class="route-point route-point--path"
-          style="left: {{item.x * 100}}%; top: {{item.y * 100}}%;"
-        ></view>
-        <view
-          wx:for="{{solveRenderModel.markers}}"
-          wx:key="segmentIndex"
-          class="route-point route-point--{{item.kind}}"
-          style="left: {{item.point.x * 100}}%; top: {{item.point.y * 100}}%;"
+          wx:for="{{editBalls}}"
+          wx:key="id"
+          class="ball ball--{{item.role}}"
+          style="left: {{item.pos.x * 100}}%; top: {{item.pos.y * 100}}%;"
+          data-ball-id="{{item.id}}"
+          bindtouchstart="handleBallDragStart"
+          catchtouchmove="handleBallDragMove"
+          bindtouchend="handleBallDragEnd"
         ></view>
       </view>
-      <view
-        wx:for="{{editBalls}}"
-        wx:key="id"
-      class="ball ball--{{item.role}}"
-      style="left: {{item.pos.x * 100}}%; top: {{item.pos.y * 100}}%;"
-      data-ball-id="{{item.id}}"
-      bindtouchstart="handleBallDragStart"
-      catchtouchmove="handleBallDragMove"
-      bindtouchend="handleBallDragEnd"
-    ></view>
   </view>
   </view>
 
@@ -64,6 +66,18 @@
     <view wx:if="{{!errorText && resultLines.length}}" class="result-stack">
       <text class="result-title">{{resultTitle}}</text>
       <text wx:for="{{resultLines}}" wx:key="*this" class="result-line">{{item}}</text>
+    </view>
+
+    <view wx:if="{{solveRenderModel && solveRenderModel.response.candidates.length}}" class="candidate-strip">
+      <button
+        wx:for="{{solveRenderModel.response.candidates}}"
+        wx:key="id"
+        class="candidate-chip {{selectedCandidateId === item.id ? 'is-active' : ''}}"
+        data-candidate-id="{{item.id}}"
+        bindtap="handleCandidateSelect"
+      >
+        {{item.id}}
+      </button>
     </view>
 
     <text wx:if="{{!errorText && !resultLines.length}}" class="placeholder-text">Choose a mode and tap calculate to inspect the first candidate.</text>

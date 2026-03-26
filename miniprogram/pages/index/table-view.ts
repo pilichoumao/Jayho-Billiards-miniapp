@@ -18,6 +18,7 @@ export type PercentPosition = {
 };
 
 export type RouteMarker = {
+  id: string;
   kind: "cushion" | "contact" | "end";
   point: Vec2;
   segmentIndex: number;
@@ -108,13 +109,13 @@ export function extractRouteMarkers(segments: PathSegment[]): RouteMarker[] {
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i];
     if (segment.event === "cushion" || segment.event === "contact") {
-      markers.push({ kind: segment.event, point: { ...segment.to }, segmentIndex: i });
+      markers.push({ id: `${i}-${segment.event}`, kind: segment.event, point: { ...segment.to }, segmentIndex: i });
     }
   }
 
   const last = segments[segments.length - 1];
   if (last) {
-    markers.push({ kind: "end", point: { ...last.to }, segmentIndex: segments.length - 1 });
+    markers.push({ id: `${segments.length - 1}-end`, kind: "end", point: { ...last.to }, segmentIndex: segments.length - 1 });
   }
 
   return markers;

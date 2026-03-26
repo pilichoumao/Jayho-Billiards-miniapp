@@ -48,9 +48,14 @@ page {
   border: 2rpx solid rgba(255, 255, 255, 0.1);
 }
 
-.table-stage__overlay {
+.table-stage__playfield {
   position: absolute;
   inset: 20rpx;
+}
+
+.table-stage__overlay {
+  position: absolute;
+  inset: 0;
 }
 
 .ball {
@@ -216,4 +221,25 @@ page {
 
 .error-text {
   color: #b42318;
+}
+
+.candidate-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 20rpx;
+}
+
+.candidate-chip {
+  padding: 14rpx 18rpx;
+  border-radius: 999rpx;
+  background: #f7efe1;
+  color: #4a5568;
+  font-size: 24rpx;
+  line-height: 1;
+}
+
+.candidate-chip.is-active {
+  background: #0f766e;
+  color: #f8fafc;
 }
