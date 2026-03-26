@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { solveMode1 } from "../solvers/mode1";
 import { solveMode2 } from "../solvers/mode2";
-import type { Ball, CandidatePath, SolveMode, SolveRequest, SolveResponse } from "../types";
+import type { Ball, CandidatePath, SolveRequest, SolveResponse } from "../types";
 import { validateRequest } from "../validate";
 
 function loadScene(name: string): SolveRequest {
@@ -302,9 +302,9 @@ describe("index page error mapping", () => {
     const options = await importPage();
 
     const handleCalculate = (options as { handleCalculate: () => void }).handleCalculate;
-    const handleBallDragStart = (options as { handleBallDragStart: (event: unknown) => void }).handleBallDragStart;
-    const handleBallDragMove = (options as { handleBallDragMove: (event: unknown) => void }).handleBallDragMove;
-    const handleBallDragEnd = (options as { handleBallDragEnd: (event: unknown) => void }).handleBallDragEnd;
+    const handleBallDragStart = (options as { handleBallDragStart: (_event: unknown) => void }).handleBallDragStart;
+    const handleBallDragMove = (options as { handleBallDragMove: (_event: unknown) => void }).handleBallDragMove;
+    const handleBallDragEnd = (options as { handleBallDragEnd: (_event: unknown) => void }).handleBallDragEnd;
 
     const page = createPageHarness((options as { data: Record<string, unknown> }).data);
     (page.data as Record<string, unknown>).mode = "mode1_contact_paths";
@@ -334,7 +334,7 @@ describe("index page error mapping", () => {
     const { importPage } = installIndexPage(solveShot);
     const options = await importPage();
 
-    const handleModeChange = (options as { handleModeChange: (event: unknown) => void }).handleModeChange;
+    const handleModeChange = (options as { handleModeChange: (_event: unknown) => void }).handleModeChange;
     const handleCalculate = (options as { handleCalculate: () => void }).handleCalculate;
 
     const page = createPageHarness((options as { data: Record<string, unknown> }).data);
@@ -363,7 +363,7 @@ describe("index page error mapping", () => {
     const options = await importPage();
 
     const handleCalculate = (options as { handleCalculate: () => void }).handleCalculate;
-    const handleCandidateSelect = (options as { handleCandidateSelect: (event: unknown) => void }).handleCandidateSelect;
+    const handleCandidateSelect = (options as { handleCandidateSelect: (_event: unknown) => void }).handleCandidateSelect;
 
     const page = createPageHarness((options as { data: Record<string, unknown> }).data);
     (page.data as Record<string, unknown>).mode = "mode1_contact_paths";
@@ -384,9 +384,9 @@ describe("index page error mapping", () => {
     const { importPage } = installIndexPage(solveShot);
     const options = await importPage();
 
-    const handleBallDragStart = (options as { handleBallDragStart: (event: unknown) => void }).handleBallDragStart;
-    const handleBallDragMove = (options as { handleBallDragMove: (event: unknown) => void }).handleBallDragMove;
-    const handleBallDragEnd = (options as { handleBallDragEnd: (event: unknown) => void }).handleBallDragEnd;
+    const handleBallDragStart = (options as { handleBallDragStart: (_event: unknown) => void }).handleBallDragStart;
+    const handleBallDragMove = (options as { handleBallDragMove: (_event: unknown) => void }).handleBallDragMove;
+    const handleBallDragEnd = (options as { handleBallDragEnd: (_event: unknown) => void }).handleBallDragEnd;
 
     const page = createPageHarness((options as { data: Record<string, unknown> }).data);
     (page.data as Record<string, unknown>).mode = "mode1_contact_paths";
