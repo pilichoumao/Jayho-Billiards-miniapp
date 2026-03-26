@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { solveMode1 } from "../solvers/mode1";
 import { solveMode2 } from "../solvers/mode2";
-import type { CandidatePath, SolveRequest, SolveResponse } from "../types";
+import type { Ball, CandidatePath, SolveMode, SolveRequest, SolveResponse } from "../types";
 import { validateRequest } from "../validate";
 
 function loadScene(name: string): SolveRequest {
@@ -209,13 +209,8 @@ describe("index page error mapping", () => {
     vi.restoreAllMocks();
   });
 
-  it("shows a friendly error when the solver returns no candidates", async () => {
+  function installIndexPage(solveShot: ReturnType<typeof vi.fn>) {
     const pageOptions: Array<Record<string, unknown>> = [];
-    const solveShot = vi.fn().mockReturnValue({
-      solver: "local-geo",
-      elapsedMs: 4,
-      candidates: []
-    });
 
     (globalThis as typeof globalThis & { Page?: (_options: Record<string, unknown>) => void }).Page = (
       options: Record<string, unknown>
@@ -227,19 +222,43 @@ describe("index page error mapping", () => {
       solveShot
     }));
 
-    await import("../../../miniprogram/pages/index/index.ts");
+    return {
+      importPage: async () => {
+        await import("../../../miniprogram/pages/index/index.ts");
 
+        const options = pageOptions[0] as Record<string, unknown> | undefined;
+        expect(options).toBeDefined();
+
+        return options as Record<string, unknown>;
+      }
+    };
+  }
+
+  function createPageHarness<TData extends Record<string, unknown>>(data: TData) {
     const page = {
-      data: {
-        mode: "mode1_contact_paths"
-      },
-      setData: vi.fn()
+      data: JSON.parse(JSON.stringify(data)) as TData,
+      setData: vi.fn((patch: Partial<TData>) => {
+        Object.assign(page.data, patch);
+      })
     };
 
-    const options = pageOptions[0];
-    expect(options).toBeDefined();
+    return page;
+  }
 
+  it("shows a friendly error when the solver returns no candidates", async () => {
+    const solveShot = vi.fn().mockReturnValue({
+      solver: "local-geo",
+      elapsedMs: 4,
+      candidates: []
+    });
+
+    const { importPage } = installIndexPage(solveShot);
+    const options = await importPage();
     const handleCalculate = (options as { handleCalculate: () => void }).handleCalculate;
+
+    const page = createPageHarness((options as { data: Record<string, unknown> }).data);
+    // Ensure mode1 is selected for deterministic request composition.
+    (page.data as Record<string, unknown>).mode = "mode1_contact_paths";
     handleCalculate.call(page);
 
     expect(solveShot).toHaveBeenCalledTimes(1);
@@ -253,34 +272,16 @@ describe("index page error mapping", () => {
   });
 
   it("shows a friendly error when every candidate is unusable", async () => {
-    const pageOptions: Array<Record<string, unknown>> = [];
     const blockedScene = loadScene("mode1-obstacle-blocked");
     const blockedResult = solveMode1(blockedScene);
     const solveShot = vi.fn().mockReturnValue(blockedResult);
 
-    (globalThis as typeof globalThis & { Page?: (_options: Record<string, unknown>) => void }).Page = (
-      options: Record<string, unknown>
-    ) => {
-      pageOptions.push(options);
-    };
-
-    vi.doMock("../../../miniprogram/core/adapter", () => ({
-      solveShot
-    }));
-
-    await import("../../../miniprogram/pages/index/index.ts");
-
-    const page = {
-      data: {
-        mode: "mode1_contact_paths"
-      },
-      setData: vi.fn()
-    };
-
-    const options = pageOptions[0];
-    expect(options).toBeDefined();
-
+    const { importPage } = installIndexPage(solveShot);
+    const options = await importPage();
     const handleCalculate = (options as { handleCalculate: () => void }).handleCalculate;
+
+    const page = createPageHarness((options as { data: Record<string, unknown> }).data);
+    (page.data as Record<string, unknown>).mode = "mode1_contact_paths";
     handleCalculate.call(page);
 
     expect(solveShot).toHaveBeenCalledTimes(1);
@@ -291,5 +292,113 @@ describe("index page error mapping", () => {
         errorText: "未找到可用结果，请调整参数后重试。"
       })
     );
+  });
+
+  it("separates edit and solve state: dragging does not call solveShot and keeps previous solve overlay until calculate", async () => {
+    const mode1Scene = loadScene("mode1-basic");
+    const solveShot = vi.fn().mockReturnValue(solveMode1(mode1Scene));
+
+    const { importPage } = installIndexPage(solveShot);
+    const options = await importPage();
+
+    const handleCalculate = (options as { handleCalculate: () => void }).handleCalculate;
+    const handleBallDragStart = (options as { handleBallDragStart: (event: unknown) => void }).handleBallDragStart;
+    const handleBallDragMove = (options as { handleBallDragMove: (event: unknown) => void }).handleBallDragMove;
+    const handleBallDragEnd = (options as { handleBallDragEnd: (event: unknown) => void }).handleBallDragEnd;
+
+    const page = createPageHarness((options as { data: Record<string, unknown> }).data);
+    (page.data as Record<string, unknown>).mode = "mode1_contact_paths";
+    // Provide a stage rect so touch -> table mapping is deterministic in tests.
+    (page.data as Record<string, unknown>).tableStageRectPx = { left: 0, top: 0, width: 100, height: 100 };
+
+    handleCalculate.call(page);
+    expect(solveShot).toHaveBeenCalledTimes(1);
+
+    const previousSolveResult = (page.data as Record<string, unknown>).solveResult;
+    const previousLines = (page.data as Record<string, unknown>).resultLines;
+
+    handleBallDragStart.call(page, { currentTarget: { dataset: { ballId: "cue" } }, touches: [{ pageX: 10, pageY: 10 }] });
+    handleBallDragMove.call(page, { touches: [{ pageX: 50, pageY: 70 }] });
+    handleBallDragMove.call(page, { changedTouches: [{ pageX: 60, pageY: 20 }] });
+    handleBallDragEnd.call(page, { changedTouches: [{ pageX: 60, pageY: 20 }] });
+
+    expect(solveShot).toHaveBeenCalledTimes(1);
+    expect((page.data as Record<string, unknown>).solveResult).toBe(previousSolveResult);
+    expect((page.data as Record<string, unknown>).resultLines).toBe(previousLines);
+  });
+
+  it("handleCalculate uses current edited ball positions and mode2 preserves cueDirection", async () => {
+    const mode2Scene = loadScene("mode2-direction");
+    const solveShot = vi.fn().mockReturnValue(solveMode2(mode2Scene));
+
+    const { importPage } = installIndexPage(solveShot);
+    const options = await importPage();
+
+    const handleModeChange = (options as { handleModeChange: (event: unknown) => void }).handleModeChange;
+    const handleCalculate = (options as { handleCalculate: () => void }).handleCalculate;
+
+    const page = createPageHarness((options as { data: Record<string, unknown> }).data);
+
+    handleModeChange.call(page, { detail: { value: "mode2_cue_direction" } });
+    const editedBalls: Ball[] = [
+      { id: "cue", role: "cue", pos: { x: 0.33, y: 0.44 }, radius: 0.028 },
+      { id: "target", role: "target", pos: { x: 0.66, y: 0.55 }, radius: 0.028 }
+    ];
+    (page.data as Record<string, unknown>).editBalls = editedBalls;
+
+    handleCalculate.call(page);
+    expect(solveShot).toHaveBeenCalledTimes(1);
+
+    const request = solveShot.mock.calls[0]?.[0] as SolveRequest;
+    expect(request.mode).toBe("mode2_cue_direction");
+    expect(request.balls).toEqual(editedBalls);
+    expect(request.input.cueDirection).toEqual({ x: 1, y: 0.1 });
+  });
+
+  it("switching candidates only updates selection state and does not re-run the solver", async () => {
+    const mode1Scene = loadScene("mode1-basic");
+    const solveShot = vi.fn().mockReturnValue(solveMode1(mode1Scene));
+
+    const { importPage } = installIndexPage(solveShot);
+    const options = await importPage();
+
+    const handleCalculate = (options as { handleCalculate: () => void }).handleCalculate;
+    const handleCandidateSelect = (options as { handleCandidateSelect: (event: unknown) => void }).handleCandidateSelect;
+
+    const page = createPageHarness((options as { data: Record<string, unknown> }).data);
+    (page.data as Record<string, unknown>).mode = "mode1_contact_paths";
+
+    handleCalculate.call(page);
+    expect(solveShot).toHaveBeenCalledTimes(1);
+
+    handleCandidateSelect.call(page, { currentTarget: { dataset: { candidateId: "mode1-2-TR" } } });
+
+    expect(solveShot).toHaveBeenCalledTimes(1);
+    expect((page.data as Record<string, unknown>).selectedCandidateId).toBe("mode1-2-TR");
+  });
+
+  it("drag handlers accept changedTouches[0] and touches[0] page coordinates", async () => {
+    const mode1Scene = loadScene("mode1-basic");
+    const solveShot = vi.fn().mockReturnValue(solveMode1(mode1Scene));
+
+    const { importPage } = installIndexPage(solveShot);
+    const options = await importPage();
+
+    const handleBallDragStart = (options as { handleBallDragStart: (event: unknown) => void }).handleBallDragStart;
+    const handleBallDragMove = (options as { handleBallDragMove: (event: unknown) => void }).handleBallDragMove;
+    const handleBallDragEnd = (options as { handleBallDragEnd: (event: unknown) => void }).handleBallDragEnd;
+
+    const page = createPageHarness((options as { data: Record<string, unknown> }).data);
+    (page.data as Record<string, unknown>).mode = "mode1_contact_paths";
+    (page.data as Record<string, unknown>).tableStageRectPx = { left: 0, top: 0, width: 100, height: 100 };
+
+    handleBallDragStart.call(page, { currentTarget: { dataset: { ballId: "cue" } }, touches: [{ pageX: 10, pageY: 10 }] });
+    handleBallDragMove.call(page, { touches: [{ pageX: 25, pageY: 75 }] });
+    handleBallDragMove.call(page, { changedTouches: [{ pageX: 50, pageY: 50 }] });
+    handleBallDragEnd.call(page, { changedTouches: [{ pageX: 50, pageY: 50 }] });
+
+    const editBalls = (page.data as Record<string, unknown>).editBalls as Ball[] | undefined;
+    expect(editBalls).toBeDefined();
+    expect(editBalls?.find((ball) => ball.id === "cue")?.pos).toMatchObject({ x: 0.5, y: 0.5 });
   });
 });

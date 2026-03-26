@@ -1,8 +1,16 @@
 import { solveShot } from "../../core/adapter";
-import type { CandidatePath, SolveMode, SolveRequest, SolveResponse } from "../../core/types";
+import type { Ball, CandidatePath, SolveMode, SolveRequest, SolveResponse } from "../../core/types";
+import type { StageRectPx } from "./table-view";
+import { clampTablePointForBall, mapTouchToTablePoint, resolveSelectedCandidate } from "./table-view";
 
 type IndexPageData = {
   mode: SolveMode;
+  editBalls: Ball[];
+  tableStageRectPx: StageRectPx;
+  draggingBallId?: string;
+  solveRequest?: SolveRequest;
+  solveResult?: SolveResponse;
+  selectedCandidateId?: string;
   resultTitle: string;
   resultLines: string[];
   errorText: string;
@@ -20,6 +28,7 @@ type PageInstance = {
 };
 
 const NO_SOLUTION_TEXT = "未找到可用结果，请调整参数后重试。";
+const DEFAULT_STAGE_RECT_PX: StageRectPx = { left: 0, top: 0, width: 1, height: 1 };
 
 declare const Page: (_options: Record<string, unknown>) => void;
 
@@ -92,6 +101,12 @@ const MODE2_REQUEST: SolveRequest = {
 Page({
   data: {
     mode: "mode1_contact_paths",
+    editBalls: cloneBalls(MODE1_REQUEST.balls),
+    tableStageRectPx: { ...DEFAULT_STAGE_RECT_PX },
+    draggingBallId: undefined,
+    solveRequest: undefined,
+    solveResult: undefined,
+    selectedCandidateId: undefined,
     resultTitle: "",
     resultLines: [],
     errorText: ""
@@ -103,6 +118,11 @@ Page({
 
     page.setData({
       mode: nextMode,
+      editBalls: cloneBalls(getModeTemplate(nextMode).balls),
+      draggingBallId: undefined,
+      solveRequest: undefined,
+      solveResult: undefined,
+      selectedCandidateId: undefined,
       resultTitle: "",
       resultLines: [],
       errorText: ""
@@ -113,10 +133,14 @@ Page({
     const page = this as PageInstance;
 
     try {
-      const result = solveShot(createRequest(page.data.mode));
+      const request = createRequest(page.data.mode, page.data.editBalls);
+      const result = solveShot(request);
 
       if (!hasUsableCandidate(result)) {
         page.setData({
+          solveRequest: undefined,
+          solveResult: undefined,
+          selectedCandidateId: undefined,
           resultTitle: "",
           resultLines: [],
           errorText: NO_SOLUTION_TEXT
@@ -125,32 +149,100 @@ Page({
         return;
       }
 
-      const summary = summarizeResult(page.data.mode, result);
+      const selectedCandidate = resolveSelectedCandidate(result, page.data.selectedCandidateId);
+      const selectedCandidateId = selectedCandidate?.id;
+      const summary = summarizeResult(page.data.mode, result, selectedCandidateId);
 
       page.setData({
+        solveRequest: request,
+        solveResult: result,
+        selectedCandidateId,
         resultTitle: summary.title,
         resultLines: summary.lines,
         errorText: ""
       });
     } catch (error) {
       page.setData({
+        solveRequest: undefined,
+        solveResult: undefined,
+        selectedCandidateId: undefined,
         resultTitle: "",
         resultLines: [],
         errorText: error instanceof Error ? error.message : "Calculation failed"
       });
     }
+  },
+
+  handleCandidateSelect(event: { detail?: { value?: string }; currentTarget?: { dataset?: Record<string, unknown> } }) {
+    const page = this as PageInstance;
+    const nextId =
+      (typeof event.detail?.value === "string" && event.detail.value) ||
+      (typeof event.currentTarget?.dataset?.candidateId === "string" && event.currentTarget.dataset.candidateId) ||
+      undefined;
+
+    if (!nextId) return;
+
+    const result = page.data.solveResult;
+    if (!result) {
+      page.setData({ selectedCandidateId: nextId });
+      return;
+    }
+
+    const summary = summarizeResult(page.data.mode, result, nextId);
+    page.setData({
+      selectedCandidateId: nextId,
+      resultTitle: summary.title,
+      resultLines: summary.lines
+    });
+  },
+
+  handleBallDragStart(event: {
+    currentTarget?: { dataset?: Record<string, unknown> };
+    touches?: Array<{ pageX: number; pageY: number }>;
+    changedTouches?: Array<{ pageX: number; pageY: number }>;
+  }) {
+    const page = this as PageInstance;
+    const ballId = typeof event.currentTarget?.dataset?.ballId === "string" ? event.currentTarget.dataset.ballId : undefined;
+    if (!ballId) return;
+
+    page.setData({
+      draggingBallId: ballId
+    });
+
+    const touch = extractTouch(event);
+    if (touch) {
+      applyBallDrag(page, touch);
+    }
+  },
+
+  handleBallDragMove(event: { touches?: Array<{ pageX: number; pageY: number }>; changedTouches?: Array<{ pageX: number; pageY: number }> }) {
+    const page = this as PageInstance;
+    const touch = extractTouch(event);
+    if (!touch) return;
+    applyBallDrag(page, touch);
+  },
+
+  handleBallDragEnd(_event: unknown) {
+    const page = this as PageInstance;
+    if (!page.data.draggingBallId) return;
+    page.setData({ draggingBallId: undefined });
   }
 });
 
-function createRequest(mode: SolveMode): SolveRequest {
-  const source = mode === "mode1_contact_paths" ? MODE1_REQUEST : MODE2_REQUEST;
+function getModeTemplate(mode: SolveMode): SolveRequest {
+  return mode === "mode1_contact_paths" ? MODE1_REQUEST : MODE2_REQUEST;
+}
+
+function createRequest(mode: SolveMode, editBalls: Ball[]): SolveRequest {
+  const source = getModeTemplate(mode);
+  const balls = editBalls.length > 0 ? editBalls : source.balls;
 
   return {
     ...source,
     table: { ...source.table },
     constraints: { ...source.constraints },
     input: source.input.cueDirection ? { cueDirection: { ...source.input.cueDirection } } : {},
-    balls: source.balls.map((ball) => ({
+    balls: balls.map((ball) => ({
       ...ball,
       pos: { ...ball.pos }
     }))
@@ -161,12 +253,12 @@ function hasUsableCandidate(result: SolveResponse): boolean {
   return result.candidates.some((candidate) => !candidate.blocked && !candidate.rejectReason);
 }
 
-function summarizeResult(mode: SolveMode, result: SolveResponse): { title: string; lines: string[] } {
+function summarizeResult(mode: SolveMode, result: SolveResponse, selectedCandidateId?: string): { title: string; lines: string[] } {
   const lines = [`Candidates: ${result.candidates.length}`, `Solver: ${result.solver}`, `Elapsed: ${result.elapsedMs} ms`];
-  const firstCandidate = result.candidates[0];
+  const selectedCandidate = resolveSelectedCandidate(result, selectedCandidateId) ?? result.candidates[0];
 
-  if (firstCandidate) {
-    lines.push(...summarizeCandidate(firstCandidate));
+  if (selectedCandidate) {
+    lines.push(...summarizeCandidate(selectedCandidate));
   } else {
     lines.push("No candidate paths returned.");
   }
@@ -187,4 +279,45 @@ function summarizeCandidate(candidate: CandidatePath): string[] {
     `Last event: ${lastSegment ? lastSegment.event : "none"}`,
     `Reject reason: ${candidate.rejectReason ?? "none"}`
   ];
+}
+
+function cloneBalls(balls: Ball[]): Ball[] {
+  return balls.map((ball) => ({
+    ...ball,
+    pos: { ...ball.pos }
+  }));
+}
+
+function extractTouch(event: {
+  touches?: Array<{ pageX: number; pageY: number }>;
+  changedTouches?: Array<{ pageX: number; pageY: number }>;
+}): { pageX: number; pageY: number } | undefined {
+  const candidate = event.changedTouches?.[0] ?? event.touches?.[0];
+  if (!candidate) return undefined;
+  if (!Number.isFinite(candidate.pageX) || !Number.isFinite(candidate.pageY)) return undefined;
+  return { pageX: candidate.pageX, pageY: candidate.pageY };
+}
+
+function applyBallDrag(page: PageInstance, touch: { pageX: number; pageY: number }): void {
+  const draggingBallId = page.data.draggingBallId;
+  if (!draggingBallId) return;
+
+  const stage = page.data.tableStageRectPx ?? DEFAULT_STAGE_RECT_PX;
+  const nextBalls = cloneBalls(page.data.editBalls);
+  const index = nextBalls.findIndex((ball) => ball.id === draggingBallId);
+  if (index < 0) return;
+
+  const ball = nextBalls[index];
+  const rawPoint = mapTouchToTablePoint(stage, touch);
+  const clamped = clampTablePointForBall(rawPoint, ball);
+  nextBalls[index] = {
+    ...ball,
+    pos: { ...clamped }
+  };
+
+  // Intentionally do not clear `solveResult` or re-run the solver. The overlay remains
+  // until the next explicit calculate.
+  page.setData({
+    editBalls: nextBalls
+  });
 }
