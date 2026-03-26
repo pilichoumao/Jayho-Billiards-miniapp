@@ -48,6 +48,11 @@ page {
   border: 2rpx solid rgba(255, 255, 255, 0.1);
 }
 
+.table-stage__overlay {
+  position: absolute;
+  inset: 20rpx;
+}
+
 .ball {
   position: absolute;
   width: 44rpx;
@@ -68,6 +73,35 @@ page {
 
 .ball--obstacle {
   background: radial-gradient(circle at 35% 35%, #ffe7e7 0%, #d95a50 52%, #8a201b 100%);
+}
+
+.route-point {
+  position: absolute;
+  width: 14rpx;
+  height: 14rpx;
+  margin-left: -7rpx;
+  margin-top: -7rpx;
+  border-radius: 50%;
+}
+
+.route-point--path {
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 0 0 4rpx rgba(255, 255, 255, 0.12);
+}
+
+.route-point--cushion {
+  background: #f59e0b;
+  box-shadow: 0 0 0 4rpx rgba(245, 158, 11, 0.18);
+}
+
+.route-point--contact {
+  background: #f43f5e;
+  box-shadow: 0 0 0 4rpx rgba(244, 63, 94, 0.18);
+}
+
+.route-point--end {
+  background: #38bdf8;
+  box-shadow: 0 0 0 4rpx rgba(56, 189, 248, 0.18);
 }
 
 .eyebrow {

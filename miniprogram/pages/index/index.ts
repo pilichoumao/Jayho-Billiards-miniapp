@@ -2,6 +2,7 @@ import { solveShot } from "../../core/adapter";
 import type { Ball, CandidatePath, SolveMode, SolveRequest, SolveResponse } from "../../core/types";
 import type { StageRectPx } from "./table-view";
 import { clampTablePointForBall, mapTouchToTablePoint, resolveSelectedCandidate } from "./table-view";
+import { buildCandidateRenderModel } from "./table-view";
 
 type IndexPageData = {
   mode: SolveMode;
@@ -9,6 +10,7 @@ type IndexPageData = {
   tableStageRectPx: StageRectPx;
   draggingBallId?: string;
   solveResult?: SolveResponse;
+  solveRenderModel?: ReturnType<typeof buildCandidateRenderModel>;
   selectedCandidateId?: string;
   resultTitle: string;
   resultLines: string[];
@@ -114,6 +116,7 @@ Page({
     tableStageRectPx: { ...DEFAULT_STAGE_RECT_PX },
     draggingBallId: undefined,
     solveResult: undefined,
+    solveRenderModel: undefined,
     selectedCandidateId: undefined,
     resultTitle: "",
     resultLines: [],
@@ -160,6 +163,7 @@ Page({
       editBalls: cloneBalls(getModeTemplate(nextMode).balls),
       draggingBallId: undefined,
       solveResult: undefined,
+      solveRenderModel: undefined,
       selectedCandidateId: undefined,
       resultTitle: "",
       resultLines: [],
@@ -177,6 +181,7 @@ Page({
       if (!hasUsableCandidate(result)) {
         page.setData({
           solveResult: undefined,
+          solveRenderModel: undefined,
           selectedCandidateId: undefined,
           resultTitle: "",
           resultLines: [],
@@ -189,9 +194,11 @@ Page({
       const selectedCandidate = resolveSelectedCandidate(result, page.data.selectedCandidateId);
       const selectedCandidateId = selectedCandidate?.id;
       const summary = summarizeResult(page.data.mode, result, selectedCandidateId);
+      const solveRenderModel = buildCandidateRenderModel(request, result, selectedCandidateId);
 
       page.setData({
         solveResult: result,
+        solveRenderModel,
         selectedCandidateId,
         resultTitle: summary.title,
         resultLines: summary.lines,
@@ -200,6 +207,7 @@ Page({
     } catch (error) {
       page.setData({
         solveResult: undefined,
+        solveRenderModel: undefined,
         selectedCandidateId: undefined,
         resultTitle: "",
         resultLines: [],
@@ -225,8 +233,10 @@ Page({
 
     const resolvedCandidateId = resolveSelectedCandidate(result, nextId)?.id ?? nextId;
     const summary = summarizeResult(page.data.mode, result, resolvedCandidateId);
+    const solveRenderModel = buildCandidateRenderModel(createRequest(page.data.mode, page.data.editBalls), result, resolvedCandidateId);
     page.setData({
       selectedCandidateId: resolvedCandidateId,
+      solveRenderModel,
       resultTitle: summary.title,
       resultLines: summary.lines
     });
@@ -271,7 +281,7 @@ function getModeTemplate(mode: SolveMode): SolveRequest {
 
 function createRequest(mode: SolveMode, editBalls: Ball[]): SolveRequest {
   const source = getModeTemplate(mode);
-  const balls = editBalls.length > 0 ? editBalls : source.balls;
+  const balls = editBalls;
   const input = { ...source.input };
 
   if (source.input.cueDirection) {

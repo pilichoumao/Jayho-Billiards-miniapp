@@ -8,6 +8,20 @@
   <view id="table-stage" class="table-stage">
     <view class="table-stage__frame">
       <view class="table-stage__surface"></view>
+      <view wx:if="{{solveRenderModel}}" class="table-stage__overlay">
+        <view
+          wx:for="{{solveRenderModel.routePoints}}"
+          wx:key="index"
+          class="route-point route-point--path"
+          style="left: {{item.x * 100}}%; top: {{item.y * 100}}%;"
+        ></view>
+        <view
+          wx:for="{{solveRenderModel.markers}}"
+          wx:key="segmentIndex"
+          class="route-point route-point--{{item.kind}}"
+          style="left: {{item.point.x * 100}}%; top: {{item.point.y * 100}}%;"
+        ></view>
+      </view>
       <view
         wx:for="{{editBalls}}"
         wx:key="id"
