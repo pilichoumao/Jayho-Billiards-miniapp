@@ -52,9 +52,9 @@ const MODE1_REQUEST: SolveRequest = {
   ],
   constraints: {
     avoidObstacle: true,
-    timeoutMs: 2000,
+    timeoutMs: 300,
     cushionMin: 2,
-    cushionMax: 5
+    cushionMax: 3
   },
   input: {}
 };
