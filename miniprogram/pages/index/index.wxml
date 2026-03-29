@@ -51,6 +51,19 @@
         </block>
         <block wx:else>
           <view
+            wx:if="{{cueDirectionGuide}}"
+            class="cue-direction-guide"
+            style="left: {{cueDirectionGuide.left}}; top: {{cueDirectionGuide.top}}; width: {{cueDirectionGuide.width}}; transform: rotate({{cueDirectionGuide.angleDeg}}deg);"
+          ></view>
+          <view
+            wx:if="{{cueDirectionGuide}}"
+            class="cue-direction-handle"
+            style="left: {{cueDirectionGuide.handleLeft}}; top: {{cueDirectionGuide.handleTop}};"
+            bindtouchstart="handleCueDirectionDragStart"
+            catchtouchmove="handleCueDirectionDragMove"
+            bindtouchend="handleCueDirectionDragEnd"
+          ></view>
+          <view
             wx:for="{{editBalls}}"
             wx:if="{{item.role === 'cue'}}"
             wx:key="id"
@@ -64,6 +77,18 @@
         </block>
       </view>
   </view>
+  </view>
+
+  <view wx:if="{{solveRenderModel && solveRenderModel.response.candidates.length}}" class="candidate-strip candidate-strip--table">
+    <button
+      wx:for="{{solveRenderModel.response.candidates}}"
+      wx:key="id"
+      class="candidate-chip {{selectedCandidateId === item.id ? 'is-active' : ''}}"
+      data-candidate-id="{{item.id}}"
+      bindtap="handleCandidateSelect"
+    >
+      {{item.id}}
+    </button>
   </view>
 
   <view class="panel">
@@ -95,18 +120,6 @@
     <view wx:if="{{!errorText && resultLines.length}}" class="result-stack">
       <text class="result-title">{{resultTitle}}</text>
       <text wx:for="{{resultLines}}" wx:key="*this" class="result-line">{{item}}</text>
-    </view>
-
-    <view wx:if="{{solveRenderModel && solveRenderModel.response.candidates.length}}" class="candidate-strip">
-      <button
-        wx:for="{{solveRenderModel.response.candidates}}"
-        wx:key="id"
-        class="candidate-chip {{selectedCandidateId === item.id ? 'is-active' : ''}}"
-        data-candidate-id="{{item.id}}"
-        bindtap="handleCandidateSelect"
-      >
-        {{item.id}}
-      </button>
     </view>
 
     <text wx:if="{{!errorText && !resultLines.length}}" class="placeholder-text">Choose a mode and tap calculate to inspect the first candidate.</text>

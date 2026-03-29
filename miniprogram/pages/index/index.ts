@@ -18,6 +18,14 @@ type IndexPageData = {
   mode: SolveMode;
   editBalls: Ball[];
   cueDirection?: { x: number; y: number };
+  cueDirectionGuide?: {
+    left: string;
+    top: string;
+    width: string;
+    angleDeg: number;
+    handleLeft: string;
+    handleTop: string;
+  };
   tableStageRectPx: StageRectPx;
   tablePocketAnchors: ReturnType<typeof createPocketAnchors>;
   draggingBallId?: string;
@@ -51,6 +59,7 @@ type WxLike = {
 
 const NO_SOLUTION_TEXT = "未找到可用结果，请调整参数后重试。";
 const DEFAULT_STAGE_RECT_PX: StageRectPx = { left: 0, top: 0, width: 1, height: 1 };
+const CUE_DIRECTION_HANDLE_DISTANCE = 0.14;
 
 declare const Page: (_options: Record<string, unknown>) => void;
 
@@ -121,6 +130,7 @@ Page({
     mode: "mode1_contact_paths",
     editBalls: cloneBalls(MODE1_REQUEST.balls),
     cueDirection: undefined,
+    cueDirectionGuide: undefined,
     tableStageRectPx: { ...DEFAULT_STAGE_RECT_PX },
     tablePocketAnchors: createPocketAnchors(),
     draggingBallId: undefined,
@@ -170,6 +180,14 @@ Page({
       mode: nextMode,
       editBalls: cloneBalls(getModeTemplate(nextMode).balls),
       cueDirection: nextMode === "mode2_cue_direction" ? { ...MODE2_INITIAL_DIRECTION } : undefined,
+      cueDirectionGuide:
+        nextMode === "mode2_cue_direction"
+          ? buildCueDirectionGuide(
+              cloneBalls(getModeTemplate(nextMode).balls),
+              MODE2_INITIAL_DIRECTION,
+              getModeTemplate(nextMode).table
+            )
+          : undefined,
       draggingBallId: undefined,
       solveRenderModel: undefined,
       selectedCandidateId: undefined,
@@ -467,6 +485,14 @@ function applyBallDrag(page: PageInstance, touch: { clientX: number; clientY: nu
 
   // Intentionally do not clear the solve render model or re-run the solver. The overlay remains
   // until the next explicit calculate.
+  if (page.data.mode === "mode2_cue_direction") {
+    page.setData({
+      editBalls: nextBalls,
+      cueDirectionGuide: buildCueDirectionGuide(nextBalls, page.data.cueDirection, getModeTemplate(page.data.mode).table)
+    });
+    return;
+  }
+
   page.setData({
     editBalls: nextBalls
   });
@@ -486,7 +512,12 @@ function applyCueDirectionDrag(page: PageInstance, touch: { clientX: number; cli
   if (distance < 0.02) return;
 
   page.setData({
-    cueDirection: normalizeVector({ x: dx, y: dy })
+    cueDirection: normalizeVector({ x: dx, y: dy }),
+    cueDirectionGuide: buildCueDirectionGuide(
+      page.data.editBalls,
+      normalizeVector({ x: dx, y: dy }),
+      getModeTemplate(page.data.mode).table
+    )
   });
 }
 
@@ -504,4 +535,52 @@ function normalizeVector(vector: { x: number; y: number }): { x: number; y: numb
 
 function formatDirection(direction: { x: number; y: number }): string {
   return `${direction.x.toFixed(3)}, ${direction.y.toFixed(3)}`;
+}
+
+function buildCueDirectionGuide(
+  balls: Ball[],
+  cueDirection: { x: number; y: number } | undefined,
+  table: SolveRequest["table"]
+):
+  | {
+      left: string;
+      top: string;
+      width: string;
+      angleDeg: number;
+      handleLeft: string;
+      handleTop: string;
+    }
+  | undefined {
+  if (!cueDirection) return undefined;
+
+  const cue = balls.find((ball) => ball.role === "cue");
+  if (!cue) return undefined;
+
+  const handlePoint = {
+    x: cue.pos.x + cueDirection.x * CUE_DIRECTION_HANDLE_DISTANCE,
+    y: cue.pos.y + cueDirection.y * CUE_DIRECTION_HANDLE_DISTANCE
+  };
+  const dx = handlePoint.x - cue.pos.x;
+  const dy = handlePoint.y - cue.pos.y;
+  const widthOverHeight = table.height === 0 ? 1 : table.width / table.height;
+  const scaledDy = dy / widthOverHeight;
+  const lengthByWidth = Math.hypot(dx, scaledDy);
+  const angleDeg = toDegrees(Math.atan2(scaledDy, dx));
+
+  return {
+    left: toPercent(cue.pos.x),
+    top: toPercent(cue.pos.y),
+    width: toPercent(lengthByWidth),
+    angleDeg,
+    handleLeft: toPercent(handlePoint.x),
+    handleTop: toPercent(handlePoint.y)
+  };
+}
+
+function toPercent(value: number): string {
+  return `${value * 100}%`;
+}
+
+function toDegrees(radians: number): number {
+  return Math.round((radians * 180 * 1000) / Math.PI) / 1000;
 }
