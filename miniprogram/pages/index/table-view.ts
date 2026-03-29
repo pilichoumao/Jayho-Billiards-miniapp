@@ -17,11 +17,35 @@ export type PercentPosition = {
   top: string;
 };
 
+export type PocketAnchor = {
+  id: string;
+  point: Vec2;
+};
+
 export type RouteMarker = {
   id: string;
   kind: "cushion" | "contact" | "end";
   point: Vec2;
   segmentIndex: number;
+};
+
+export type RouteLineSegment = {
+  id: string;
+  kind: PathSegment["event"];
+  from: Vec2;
+  to: Vec2;
+  left: string;
+  top: string;
+  width: string;
+  angleDeg: number;
+};
+
+export type RouteArrow = {
+  id: string;
+  point: Vec2;
+  left: string;
+  top: string;
+  angleDeg: number;
 };
 
 export type CandidateRenderModel = {
@@ -30,7 +54,10 @@ export type CandidateRenderModel = {
   selectedCandidateId?: string;
   selectedCandidate?: CandidatePath;
   routePoints: Vec2[];
+  routeSegments: RouteLineSegment[];
+  routeArrow?: RouteArrow;
   markers: RouteMarker[];
+  pocketAnchors: PocketAnchor[];
 };
 
 export function createStageGeometry(stage: StageRectPx): StageGeometry {
@@ -60,6 +87,17 @@ export function mapTablePointToPercent(point: Vec2): PercentPosition {
 
 export function mapStagePixelToTablePoint(stage: StageRectPx, pixel: Vec2): Vec2 {
   return createStageGeometry(stage).stagePxToTable(pixel);
+}
+
+export function createPocketAnchors(): PocketAnchor[] {
+  return [
+    { id: "top-left", point: { x: 0, y: 0 } },
+    { id: "top-middle", point: { x: 0.5, y: 0 } },
+    { id: "top-right", point: { x: 1, y: 0 } },
+    { id: "bottom-left", point: { x: 0, y: 1 } },
+    { id: "bottom-middle", point: { x: 0.5, y: 1 } },
+    { id: "bottom-right", point: { x: 1, y: 1 } }
+  ];
 }
 
 export function mapTouchToTablePoint(
@@ -104,6 +142,40 @@ export function extractRoutePoints(segments: PathSegment[]): Vec2[] {
   return points;
 }
 
+export function extractRouteLineSegments(segments: PathSegment[]): RouteLineSegment[] {
+  return segments.map((segment, index) => {
+    const dx = segment.to.x - segment.from.x;
+    const dy = segment.to.y - segment.from.y;
+
+    return {
+      id: `${index}-${segment.event}`,
+      kind: segment.event,
+      from: { ...segment.from },
+      to: { ...segment.to },
+      left: formatPercent(segment.from.x),
+      top: formatPercent(segment.from.y),
+      width: formatPercent(Math.hypot(dx, dy)),
+      angleDeg: toDegrees(Math.atan2(dy, dx))
+    };
+  });
+}
+
+export function extractRouteArrow(segments: PathSegment[]): RouteArrow | undefined {
+  const last = segments[segments.length - 1];
+  if (!last) return undefined;
+
+  const dx = last.to.x - last.from.x;
+  const dy = last.to.y - last.from.y;
+
+  return {
+    id: `${segments.length - 1}-arrow`,
+    point: { ...last.to },
+    left: formatPercent(last.to.x),
+    top: formatPercent(last.to.y),
+    angleDeg: toDegrees(Math.atan2(dy, dx))
+  };
+}
+
 export function extractRouteMarkers(segments: PathSegment[]): RouteMarker[] {
   const markers: RouteMarker[] = [];
   for (let i = 0; i < segments.length; i++) {
@@ -135,7 +207,10 @@ export function buildCandidateRenderModel(
     selectedCandidateId: selectedCandidate?.id,
     selectedCandidate,
     routePoints: extractRoutePoints(segments),
-    markers: extractRouteMarkers(segments)
+    routeSegments: extractRouteLineSegments(segments),
+    routeArrow: extractRouteArrow(segments),
+    markers: extractRouteMarkers(segments),
+    pocketAnchors: createPocketAnchors()
   };
 }
 
@@ -158,4 +233,8 @@ function formatPercent(value: number): string {
   }
 
   return `${parseFloat(scaled.toFixed(3))}%`;
+}
+
+function toDegrees(radians: number): number {
+  return Math.round((radians * 180) / Math.PI * 1000) / 1000;
 }

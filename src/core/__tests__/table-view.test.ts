@@ -41,10 +41,39 @@ describe("table-view helpers", () => {
     expect(mapTablePointToPercent({ x: 0.18, y: 0.24 })).toEqual({ left: "18%", top: "24%" });
   });
 
-  it("selects the requested candidate and exposes route segments", () => {
+  it("exposes six pocket anchors at the standard table locations", () => {
+    const model = buildCandidateRenderModel(mockRequest, mockResponse, "candidate-a");
+
+    expect(model.pocketAnchors).toHaveLength(6);
+    expect(model.pocketAnchors.map((anchor) => anchor.point)).toEqual([
+      { x: 0, y: 0 },
+      { x: 0.5, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0.5, y: 1 },
+      { x: 1, y: 1 }
+    ]);
+  });
+
+  it("selects the requested candidate and exposes route line geometry", () => {
     const model = buildCandidateRenderModel(mockRequest, mockResponse, "candidate-b");
+
     expect(model.selectedCandidate?.id).toBe("candidate-b");
     expect(model.selectedCandidate?.segments).toHaveLength(3);
+    expect(model.routeSegments).toHaveLength(3);
+    expect(model.routeSegments[0]).toMatchObject({
+      kind: "start",
+      left: "0%",
+      top: "0%",
+      width: "53.852%"
+    });
+    expect(model.routeSegments[0].angleDeg).toBeCloseTo(21.801, 3);
+    expect(model.routeSegments[2]).toMatchObject({
+      kind: "contact",
+      left: "70%",
+      top: "50%",
+      width: "14.142%"
+    });
   });
 
   it("falls back to the first feasible candidate when the requested one is unusable", () => {
@@ -63,6 +92,7 @@ describe("table-view helpers", () => {
     const model = buildCandidateRenderModel(mockRequest, blockedResponse, "candidate-a");
 
     expect(model.selectedCandidate?.id).toBe("candidate-b");
+    expect(model.routeSegments).toHaveLength(3);
   });
 
   it("returns no selected candidate when all candidates are unusable", () => {
@@ -80,5 +110,7 @@ describe("table-view helpers", () => {
     expect(model.selectedCandidate).toBeUndefined();
     expect(model.routePoints).toHaveLength(0);
     expect(model.markers).toHaveLength(0);
+    expect(model.routeSegments).toHaveLength(0);
+    expect(model.pocketAnchors).toHaveLength(6);
   });
 });

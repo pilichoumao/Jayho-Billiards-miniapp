@@ -9,30 +9,59 @@
     <view class="table-stage__frame">
       <view class="table-stage__surface"></view>
       <view id="table-stage" class="table-stage__playfield">
-        <view wx:if="{{solveRenderModel}}" class="table-stage__overlay">
+        <view class="table-stage__overlay">
           <view
-            wx:for="{{solveRenderModel.routePoints}}"
-            wx:key="index"
-            class="route-point route-point--path"
-            style="left: {{item.x * 100}}%; top: {{item.y * 100}}%;"
-          ></view>
-          <view
-            wx:for="{{solveRenderModel.markers}}"
+            wx:for="{{tablePocketAnchors}}"
             wx:key="id"
-            class="route-point route-point--{{item.kind}}"
+            class="pocket pocket--{{item.id}}"
             style="left: {{item.point.x * 100}}%; top: {{item.point.y * 100}}%;"
           ></view>
+
+          <view wx:if="{{solveRenderModel}}" class="route-layer">
+            <view
+              wx:for="{{solveRenderModel.routeSegments}}"
+              wx:key="id"
+              class="route-line route-line--{{item.kind}}"
+              style="left: {{item.left}}; top: {{item.top}}; width: {{item.width}}; transform: rotate({{item.angleDeg}}deg);"
+            ></view>
+            <view
+              wx:if="{{mode === 'mode2_cue_direction' && solveRenderModel.routeArrow}}"
+              class="route-arrow"
+              style="left: {{solveRenderModel.routeArrow.left}}; top: {{solveRenderModel.routeArrow.top}}; transform: rotate({{solveRenderModel.routeArrow.angleDeg}}deg);"
+            ></view>
+            <view
+              wx:for="{{solveRenderModel.markers}}"
+              wx:key="id"
+              class="route-point route-point--{{item.kind}}"
+              style="left: {{item.point.x * 100}}%; top: {{item.point.y * 100}}%;"
+            ></view>
+          </view>
         </view>
-        <view
-          wx:for="{{editBalls}}"
-          wx:key="id"
-          class="ball ball--{{item.role}}"
-          style="left: {{item.pos.x * 100}}%; top: {{item.pos.y * 100}}%;"
-          data-ball-id="{{item.id}}"
-          bindtouchstart="handleBallDragStart"
-          catchtouchmove="handleBallDragMove"
-          bindtouchend="handleBallDragEnd"
-        ></view>
+        <block wx:if="{{mode === 'mode1_contact_paths'}}">
+          <view
+            wx:for="{{editBalls}}"
+            wx:key="id"
+            class="ball ball--{{item.role}}"
+            style="left: {{item.pos.x * 100}}%; top: {{item.pos.y * 100}}%;"
+            data-ball-id="{{item.id}}"
+            bindtouchstart="handleBallDragStart"
+            catchtouchmove="handleBallDragMove"
+            bindtouchend="handleBallDragEnd"
+          ></view>
+        </block>
+        <block wx:else>
+          <view
+            wx:for="{{editBalls}}"
+            wx:if="{{item.role === 'cue'}}"
+            wx:key="id"
+            class="ball ball--{{item.role}}"
+            style="left: {{item.pos.x * 100}}%; top: {{item.pos.y * 100}}%;"
+            data-ball-id="{{item.id}}"
+            bindtouchstart="handleBallDragStart"
+            catchtouchmove="handleBallDragMove"
+            bindtouchend="handleBallDragEnd"
+          ></view>
+        </block>
       </view>
   </view>
   </view>

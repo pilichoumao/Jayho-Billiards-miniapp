@@ -4,7 +4,10 @@ import type { StageRectPx } from "./table-view";
 import {
   buildCandidateRenderModel,
   clampTablePointForBall,
+  createPocketAnchors,
   extractRouteMarkers,
+  extractRouteArrow,
+  extractRouteLineSegments,
   extractRoutePoints,
   findCandidateById,
   mapTouchToTablePoint,
@@ -16,6 +19,7 @@ type IndexPageData = {
   editBalls: Ball[];
   cueDirection?: { x: number; y: number };
   tableStageRectPx: StageRectPx;
+  tablePocketAnchors: ReturnType<typeof createPocketAnchors>;
   draggingBallId?: string;
   solveRenderModel?: ReturnType<typeof buildCandidateRenderModel>;
   selectedCandidateId?: string;
@@ -118,6 +122,7 @@ Page({
     editBalls: cloneBalls(MODE1_REQUEST.balls),
     cueDirection: undefined,
     tableStageRectPx: { ...DEFAULT_STAGE_RECT_PX },
+    tablePocketAnchors: createPocketAnchors(),
     draggingBallId: undefined,
     solveRenderModel: undefined,
     selectedCandidateId: undefined,
@@ -368,7 +373,10 @@ function buildSolveRenderModel(
     selectedCandidateId: candidate.id,
     selectedCandidate: candidate,
     routePoints: extractRoutePoints(candidate.segments),
-    markers: extractRouteMarkers(candidate.segments)
+    routeSegments: extractRouteLineSegments(candidate.segments),
+    routeArrow: extractRouteArrow(candidate.segments),
+    markers: extractRouteMarkers(candidate.segments),
+    pocketAnchors: createPocketAnchors()
   };
 }
 
