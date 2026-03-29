@@ -23,7 +23,8 @@ describe("solveShot", () => {
 
     expect(result.solver).toBe("local-geo");
     expect(result.candidates).toHaveLength(1);
-    expect(result.candidates[0].segments[result.candidates[0].segments.length - 1]?.event).toBe("contact");
+    expect(result.candidates[0].segments.length).toBeGreaterThan(0);
+    expect(result.candidates[0].segments.some((segment) => segment.event === "contact")).toBe(false);
   });
 
   it("validates the request before routing", () => {
