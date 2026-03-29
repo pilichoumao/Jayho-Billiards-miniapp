@@ -31,7 +31,6 @@ page {
   position: relative;
   width: 100%;
   aspect-ratio: 2 / 1;
-  min-height: 420rpx;
   border-radius: 30rpx;
   overflow: hidden;
   border: 2rpx solid rgba(50, 37, 22, 0.18);
