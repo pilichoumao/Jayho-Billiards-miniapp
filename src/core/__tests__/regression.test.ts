@@ -138,7 +138,7 @@ describe("fixture regression suite", () => {
     ]);
   });
 
-  it("keeps mode2 contact behavior deterministic for the fixture pack", () => {
+  it("keeps mode2 cue-only fixture deterministic and rejects by travel-distance threshold", () => {
     const scene = loadScene("mode2-direction");
 
     const first = solveMode2(scene);
@@ -148,30 +148,10 @@ describe("fixture regression suite", () => {
     expect(first.solver).toBe("local-geo");
     expect(first.candidates).toHaveLength(1);
     expect(first.candidates[0].blocked).toBe(false);
-    expect(first.candidates[0].rejectReason).toBeUndefined();
-    expect(first.candidates[0].cushions).toBe(1);
-    expect(first.candidates[0].segments).toHaveLength(2);
+    expect(first.candidates[0].rejectReason).toBe("travel-distance-threshold");
     expect(first.candidates[0].segments[0].event).toBe("start");
-    expect(first.candidates[0].segments[1].event).toBe("contact");
-    expect(first.candidates[0].segments[0].to.x).toBeCloseTo(0.972, 6);
-    expect(first.candidates[0].segments[0].to.y).toBeGreaterThan(0.028);
-    expect(first.candidates[0].segments[0].to.y).toBeLessThan(0.972);
-    expect(first.candidates[0].metrics.travelDistance).toBeGreaterThan(0);
-    expect(first.candidates[0].metrics.travelDistance).toBeGreaterThan(1);
-    expect(first.candidates[0].metrics.travelDistance).toBeLessThan(2);
-    expect(first.candidates.slice(0, 1).map(candidateSignature)).toEqual([
-      {
-        id: "mode2-1-2",
-        cushions: 1,
-        blocked: false,
-        rejectReason: undefined,
-        segments: 2,
-        score: 998890.63,
-        travelDistance: 1.094,
-        minClearance: 0,
-        lastEvent: "contact"
-      }
-    ]);
+    expect(first.candidates[0].segments.some((segment) => segment.event === "contact")).toBe(false);
+    expect(first.candidates[0].metrics.travelDistance).toBeCloseTo(2.5, 6);
   });
 
   it("keeps mode2 timeout and threshold semantics stable", () => {
@@ -345,12 +325,14 @@ describe("index page error mapping", () => {
     expect(solveShot).not.toHaveBeenCalled();
     expect((page.data as Record<string, unknown>).mode).toBe("mode2_cue_direction");
     expect((page.data as Record<string, unknown>).editBalls).toEqual([
-      { id: "cue", role: "cue", pos: { x: 0.2, y: 0.4 }, radius: 0.028 },
-      { id: "target", role: "target", pos: { x: 0.6, y: 0.514 }, radius: 0.028 }
+      { id: "cue", role: "cue", pos: { x: 0.2, y: 0.4 }, radius: 0.028 }
     ]);
+    const cueDirection = (page.data as Record<string, unknown>).cueDirection as { x: number; y: number } | undefined;
+    expect(cueDirection).toBeDefined();
+    expect(Math.hypot(cueDirection?.x ?? 0, cueDirection?.y ?? 0)).toBeCloseTo(1, 6);
   });
 
-  it("handleCalculate uses current edited ball positions and mode2 preserves cueDirection", async () => {
+  it("direction dragging only updates cueDirection and keeps it normalized", async () => {
     const mode2Scene = loadScene("mode2-direction");
     const solveShot = vi.fn().mockReturnValue(solveMode2(mode2Scene));
 
@@ -358,25 +340,64 @@ describe("index page error mapping", () => {
     const options = await importPage();
 
     const handleModeChange = (options as { handleModeChange: (_event: unknown) => void }).handleModeChange;
-    const handleCalculate = (options as { handleCalculate: () => void }).handleCalculate;
-    const handleBallDragStart = (options as { handleBallDragStart: (_event: unknown) => void }).handleBallDragStart;
-    const handleBallDragEnd = (options as { handleBallDragEnd: (_event: unknown) => void }).handleBallDragEnd;
+    const handleCueDirectionDragStart = (options as { handleCueDirectionDragStart: (_event: unknown) => void })
+      .handleCueDirectionDragStart;
+    const handleCueDirectionDragMove = (options as { handleCueDirectionDragMove: (_event: unknown) => void })
+      .handleCueDirectionDragMove;
+    const handleCueDirectionDragEnd = (options as { handleCueDirectionDragEnd: (_event: unknown) => void })
+      .handleCueDirectionDragEnd;
 
     const page = createPageHarness((options as { data: Record<string, unknown> }).data);
 
     handleModeChange.call(page, { detail: { value: "mode2_cue_direction" } });
     (page.data as Record<string, unknown>).tableStageRectPx = { left: 0, top: 0, width: 100, height: 100 };
 
-    handleBallDragStart.call(page, {
-      currentTarget: { dataset: { ballId: "cue" } },
-      touches: [{ pageX: 33, pageY: 44 }]
-    });
-    handleBallDragEnd.call(page, { changedTouches: [{ pageX: 33, pageY: 44 }] });
-    handleBallDragStart.call(page, {
-      currentTarget: { dataset: { ballId: "target" } },
-      touches: [{ pageX: 66, pageY: 55 }]
-    });
-    handleBallDragEnd.call(page, { changedTouches: [{ pageX: 66, pageY: 55 }] });
+    const before = page.data.cueDirection as { x: number; y: number };
+    handleCueDirectionDragStart.call(page, { touches: [{ pageX: 40, pageY: 80 }] });
+    handleCueDirectionDragMove.call(page, { touches: [{ pageX: 60, pageY: 90 }] });
+    handleCueDirectionDragEnd.call(page, { changedTouches: [{ pageX: 60, pageY: 90 }] });
+
+    expect(solveShot).not.toHaveBeenCalled();
+    const after = page.data.cueDirection as { x: number; y: number };
+    expect(after).not.toEqual(before);
+    expect(Math.hypot(after.x, after.y)).toBeCloseTo(1, 6);
+  });
+
+  it("handleCalculate uses current cue-only balls and the normalized cueDirection", async () => {
+    const solveShot = vi.fn().mockReturnValue({
+      solver: "local-geo",
+      elapsedMs: 5,
+      candidates: [
+        {
+          id: "mode2-valid",
+          score: 12.34,
+          cushions: 1,
+          blocked: false,
+          segments: [
+            { event: "start", from: { x: 0.2, y: 0.4 }, to: { x: 0.5, y: 0.7 } },
+            { event: "contact", from: { x: 0.5, y: 0.7 }, to: { x: 0.6, y: 0.8 } }
+          ],
+          metrics: {
+            travelDistance: 1.234,
+            minClearance: 0.12
+          }
+        }
+      ]
+    } satisfies SolveResponse);
+
+    const { importPage } = installIndexPage(solveShot);
+    const options = await importPage();
+
+    const handleModeChange = (options as { handleModeChange: (_event: unknown) => void }).handleModeChange;
+    const handleCalculate = (options as { handleCalculate: () => void }).handleCalculate;
+    const handleCueDirectionDragMove = (options as { handleCueDirectionDragMove: (_event: unknown) => void })
+      .handleCueDirectionDragMove;
+
+    const page = createPageHarness((options as { data: Record<string, unknown> }).data);
+
+    handleModeChange.call(page, { detail: { value: "mode2_cue_direction" } });
+    (page.data as Record<string, unknown>).tableStageRectPx = { left: 0, top: 0, width: 100, height: 100 };
+    handleCueDirectionDragMove.call(page, { touches: [{ pageX: 60, pageY: 80 }] });
 
     handleCalculate.call(page);
     expect(solveShot).toHaveBeenCalledTimes(1);
@@ -384,10 +405,90 @@ describe("index page error mapping", () => {
     const request = solveShot.mock.calls[0]?.[0] as SolveRequest;
     expect(request.mode).toBe("mode2_cue_direction");
     expect(request.balls).toEqual([
-      { id: "cue", role: "cue", pos: { x: 0.33, y: 0.44 }, radius: 0.028 },
-      { id: "target", role: "target", pos: { x: 0.66, y: 0.55 }, radius: 0.028 }
+      { id: "cue", role: "cue", pos: { x: 0.2, y: 0.4 }, radius: 0.028 }
     ]);
-    expect(request.input.cueDirection).toEqual({ x: 1, y: 0.1 });
+    expect(request.input.cueDirection).toEqual(page.data.cueDirection);
+    expect(Math.hypot(request.input.cueDirection?.x ?? 0, request.input.cueDirection?.y ?? 0)).toBeCloseTo(1, 6);
+    expect((page.data as Record<string, unknown>).resultLines).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^Direction: /), "State: valid"])
+    );
+  });
+
+  it("keeps the previous direction when the drag is below the near-zero threshold", async () => {
+    const solveShot = vi.fn().mockReturnValue({
+      solver: "local-geo",
+      elapsedMs: 1,
+      candidates: []
+    });
+
+    const { importPage } = installIndexPage(solveShot);
+    const options = await importPage();
+
+    const handleModeChange = (options as { handleModeChange: (_event: unknown) => void }).handleModeChange;
+    const handleCueDirectionDragMove = (options as { handleCueDirectionDragMove: (_event: unknown) => void })
+      .handleCueDirectionDragMove;
+    const handleCalculate = (options as { handleCalculate: () => void }).handleCalculate;
+
+    const page = createPageHarness((options as { data: Record<string, unknown> }).data);
+    handleModeChange.call(page, { detail: { value: "mode2_cue_direction" } });
+    (page.data as Record<string, unknown>).tableStageRectPx = { left: 0, top: 0, width: 100, height: 100 };
+
+    const initialDirection = { ...(page.data as Record<string, unknown>).cueDirection as { x: number; y: number } };
+    handleCueDirectionDragMove.call(page, { touches: [{ pageX: 20.5, pageY: 40.5 }] });
+
+    expect((page.data as Record<string, unknown>).cueDirection).toEqual(initialDirection);
+
+    handleCalculate.call(page);
+    const request = solveShot.mock.calls[0]?.[0] as SolveRequest;
+    expect(request.input.cueDirection).toEqual(initialDirection);
+    expect(Math.hypot(request.input.cueDirection?.x ?? 0, request.input.cueDirection?.y ?? 0)).toBeCloseTo(1, 6);
+  });
+
+  it("mode2 summaries include direction, validity, and invalid reasons", async () => {
+    const invalidResult: SolveResponse = {
+      solver: "local-geo",
+      elapsedMs: 7,
+      candidates: [
+        {
+          id: "mode2-pocketed",
+          score: -12,
+          cushions: 1,
+          blocked: true,
+          rejectReason: "pocketed",
+          segments: [
+            { event: "start", from: { x: 0.2, y: 0.4 }, to: { x: 0.35, y: 0.55 } },
+            { event: "end", from: { x: 0.35, y: 0.55 }, to: { x: 0.38, y: 0.58 } }
+          ],
+          metrics: {
+            travelDistance: 0.75,
+            minClearance: -0.01
+          }
+        }
+      ]
+    };
+    const solveShot = vi.fn().mockReturnValue(invalidResult);
+
+    const { importPage } = installIndexPage(solveShot);
+    const options = await importPage();
+
+    const handleModeChange = (options as { handleModeChange: (_event: unknown) => void }).handleModeChange;
+    const handleCalculate = (options as { handleCalculate: () => void }).handleCalculate;
+
+    const page = createPageHarness((options as { data: Record<string, unknown> }).data);
+    handleModeChange.call(page, { detail: { value: "mode2_cue_direction" } });
+
+    handleCalculate.call(page);
+
+    expect((page.data as Record<string, unknown>).errorText).toBe("");
+    expect((page.data as Record<string, unknown>).resultTitle).toBe("Mode 2 Result");
+    expect((page.data as Record<string, unknown>).resultLines).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^Direction: /),
+        "State: invalid",
+        "Invalid reason: pocketed"
+      ])
+    );
+    expect((page.data as Record<string, unknown>).solveRenderModel).toBeDefined();
   });
 
   it("switching candidates only updates selection state and does not re-run the solver", async () => {

@@ -1,12 +1,20 @@
 import { solveShot } from "../../core/adapter";
 import type { Ball, CandidatePath, SolveMode, SolveRequest, SolveResponse } from "../../core/types";
 import type { StageRectPx } from "./table-view";
-import { clampTablePointForBall, mapTouchToTablePoint, resolveSelectedCandidate } from "./table-view";
-import { buildCandidateRenderModel } from "./table-view";
+import {
+  buildCandidateRenderModel,
+  clampTablePointForBall,
+  extractRouteMarkers,
+  extractRoutePoints,
+  findCandidateById,
+  mapTouchToTablePoint,
+  resolveSelectedCandidate
+} from "./table-view";
 
 type IndexPageData = {
   mode: SolveMode;
   editBalls: Ball[];
+  cueDirection?: { x: number; y: number };
   tableStageRectPx: StageRectPx;
   draggingBallId?: string;
   solveRenderModel?: ReturnType<typeof buildCandidateRenderModel>;
@@ -91,12 +99,6 @@ const MODE2_REQUEST: SolveRequest = {
       role: "cue",
       pos: { x: 0.2, y: 0.4 },
       radius: 0.028
-    },
-    {
-      id: "target",
-      role: "target",
-      pos: { x: 0.6, y: 0.514 },
-      radius: 0.028
     }
   ],
   constraints: {
@@ -108,10 +110,13 @@ const MODE2_REQUEST: SolveRequest = {
   }
 };
 
+const MODE2_INITIAL_DIRECTION = normalizeVector(MODE2_REQUEST.input.cueDirection ?? { x: 1, y: 0 });
+
 Page({
   data: {
     mode: "mode1_contact_paths",
     editBalls: cloneBalls(MODE1_REQUEST.balls),
+    cueDirection: undefined,
     tableStageRectPx: { ...DEFAULT_STAGE_RECT_PX },
     draggingBallId: undefined,
     solveRenderModel: undefined,
@@ -159,6 +164,7 @@ Page({
     page.setData({
       mode: nextMode,
       editBalls: cloneBalls(getModeTemplate(nextMode).balls),
+      cueDirection: nextMode === "mode2_cue_direction" ? { ...MODE2_INITIAL_DIRECTION } : undefined,
       draggingBallId: undefined,
       solveRenderModel: undefined,
       selectedCandidateId: undefined,
@@ -172,10 +178,11 @@ Page({
     const page = this as PageInstance;
 
     try {
-      const request = createRequest(page.data.mode, page.data.editBalls);
+      const request = createRequest(page.data.mode, page.data.editBalls, page.data.cueDirection);
       const result = solveShot(request);
+      const displayCandidate = resolveDisplayCandidate(page.data.mode, result, page.data.selectedCandidateId);
 
-      if (!hasUsableCandidate(result)) {
+      if (!displayCandidate) {
         page.setData({
           solveRenderModel: undefined,
           selectedCandidateId: undefined,
@@ -187,14 +194,12 @@ Page({
         return;
       }
 
-      const selectedCandidate = resolveSelectedCandidate(result, page.data.selectedCandidateId);
-      const selectedCandidateId = selectedCandidate?.id;
-      const summary = summarizeResult(page.data.mode, result, selectedCandidateId);
-      const solveRenderModel = buildCandidateRenderModel(request, result, selectedCandidateId);
+      const summary = summarizeResult(page.data.mode, result, displayCandidate.id, page.data.cueDirection);
+      const solveRenderModel = buildSolveRenderModel(request, result, displayCandidate);
 
       page.setData({
         solveRenderModel,
-        selectedCandidateId,
+        selectedCandidateId: displayCandidate.id,
         resultTitle: summary.title,
         resultLines: summary.lines,
         errorText: ""
@@ -225,12 +230,17 @@ Page({
       return;
     }
 
-    const resolvedCandidateId = resolveSelectedCandidate(result, nextId)?.id ?? nextId;
-    const summary = summarizeResult(page.data.mode, result, resolvedCandidateId);
+    const resolvedCandidate = resolveDisplayCandidate(page.data.mode, result, nextId);
+    if (!resolvedCandidate) {
+      page.setData({ selectedCandidateId: nextId });
+      return;
+    }
+
+    const summary = summarizeResult(page.data.mode, result, resolvedCandidate.id, page.data.cueDirection);
     const solveRequest = page.data.solveRenderModel?.request ?? createRequest(page.data.mode, page.data.editBalls);
-    const solveRenderModel = buildCandidateRenderModel(solveRequest, result, resolvedCandidateId);
+    const solveRenderModel = buildSolveRenderModel(solveRequest, result, resolvedCandidate);
     page.setData({
-      selectedCandidateId: resolvedCandidateId,
+      selectedCandidateId: resolvedCandidate.id,
       solveRenderModel,
       resultTitle: summary.title,
       resultLines: summary.lines
@@ -267,6 +277,24 @@ Page({
     const page = this as PageInstance;
     if (!page.data.draggingBallId) return;
     page.setData({ draggingBallId: undefined });
+  },
+
+  handleCueDirectionDragStart(event: { touches?: Array<{ pageX: number; pageY: number }>; changedTouches?: Array<{ pageX: number; pageY: number }> }) {
+    const page = this as PageInstance;
+    const touch = extractTouch(event);
+    if (!touch) return;
+    applyCueDirectionDrag(page, touch);
+  },
+
+  handleCueDirectionDragMove(event: { touches?: Array<{ pageX: number; pageY: number }>; changedTouches?: Array<{ pageX: number; pageY: number }> }) {
+    const page = this as PageInstance;
+    const touch = extractTouch(event);
+    if (!touch) return;
+    applyCueDirectionDrag(page, touch);
+  },
+
+  handleCueDirectionDragEnd(_event: unknown) {
+    return;
   }
 });
 
@@ -274,13 +302,13 @@ function getModeTemplate(mode: SolveMode): SolveRequest {
   return mode === "mode1_contact_paths" ? MODE1_REQUEST : MODE2_REQUEST;
 }
 
-function createRequest(mode: SolveMode, editBalls: Ball[]): SolveRequest {
+function createRequest(mode: SolveMode, editBalls: Ball[], cueDirection?: { x: number; y: number }): SolveRequest {
   const source = getModeTemplate(mode);
   const balls = editBalls;
   const input = { ...source.input };
 
-  if (source.input.cueDirection) {
-    input.cueDirection = { ...source.input.cueDirection };
+  if (mode === "mode2_cue_direction") {
+    input.cueDirection = normalizeVector(cueDirection ?? source.input.cueDirection ?? MODE2_INITIAL_DIRECTION);
   }
 
   return {
@@ -299,12 +327,66 @@ function hasUsableCandidate(result: SolveResponse): boolean {
   return result.candidates.some((candidate) => !candidate.blocked && !candidate.rejectReason);
 }
 
-function summarizeResult(mode: SolveMode, result: SolveResponse, selectedCandidateId?: string): { title: string; lines: string[] } {
+function resolveDisplayCandidate(
+  mode: SolveMode,
+  result: SolveResponse,
+  selectedCandidateId?: string
+): CandidatePath | undefined {
+  const requestedCandidate = findCandidateById(result, selectedCandidateId);
+  if (requestedCandidate && isDisplayCandidate(mode, requestedCandidate)) {
+    return requestedCandidate;
+  }
+
+  const usableCandidate = resolveSelectedCandidate(result, selectedCandidateId);
+  if (usableCandidate) {
+    return usableCandidate;
+  }
+
+  if (mode === "mode2_cue_direction") {
+    return result.candidates.find((candidate) => candidate.rejectReason === "pocketed");
+  }
+
+  return undefined;
+}
+
+function isDisplayCandidate(mode: SolveMode, candidate: CandidatePath): boolean {
+  return isUsableCandidate(candidate) || (mode === "mode2_cue_direction" && candidate.rejectReason === "pocketed");
+}
+
+function isUsableCandidate(candidate: CandidatePath): boolean {
+  return !candidate.blocked && !candidate.rejectReason;
+}
+
+function buildSolveRenderModel(
+  request: SolveRequest,
+  response: SolveResponse,
+  candidate: CandidatePath
+): ReturnType<typeof buildCandidateRenderModel> {
+  if (isUsableCandidate(candidate)) {
+    return buildCandidateRenderModel(request, response, candidate.id);
+  }
+
+  return {
+    request,
+    response,
+    selectedCandidateId: candidate.id,
+    selectedCandidate: candidate,
+    routePoints: extractRoutePoints(candidate.segments),
+    markers: extractRouteMarkers(candidate.segments)
+  };
+}
+
+function summarizeResult(
+  mode: SolveMode,
+  result: SolveResponse,
+  selectedCandidateId?: string,
+  cueDirection?: { x: number; y: number }
+): { title: string; lines: string[] } {
   const lines = [`Candidates: ${result.candidates.length}`, `Solver: ${result.solver}`, `Elapsed: ${result.elapsedMs} ms`];
-  const selectedCandidate = resolveSelectedCandidate(result, selectedCandidateId);
+  const selectedCandidate = resolveDisplayCandidate(mode, result, selectedCandidateId);
 
   if (selectedCandidate) {
-    lines.push(...summarizeCandidate(selectedCandidate));
+    lines.push(...summarizeCandidate(mode, selectedCandidate, cueDirection));
   } else {
     lines.push("No candidate paths returned.");
   }
@@ -315,16 +397,28 @@ function summarizeResult(mode: SolveMode, result: SolveResponse, selectedCandida
   };
 }
 
-function summarizeCandidate(candidate: CandidatePath): string[] {
+function summarizeCandidate(mode: SolveMode, candidate: CandidatePath, cueDirection?: { x: number; y: number }): string[] {
   const lastSegment = candidate.segments[candidate.segments.length - 1];
+  const valid = isUsableCandidate(candidate);
 
-  return [
+  const lines = [
     `First: ${candidate.id}`,
+    ...(mode === "mode2_cue_direction" && cueDirection ? [`Direction: ${formatDirection(cueDirection)}`] : []),
+    ...(mode === "mode2_cue_direction" ? [`State: ${valid ? "valid" : "invalid"}`] : []),
     `Cushions: ${candidate.cushions} | Score: ${candidate.score.toFixed(2)}`,
     `Travel: ${candidate.metrics.travelDistance.toFixed(3)} | Clearance: ${candidate.metrics.minClearance.toFixed(3)}`,
-    `Last event: ${lastSegment ? lastSegment.event : "none"}`,
-    `Reject reason: ${candidate.rejectReason ?? "none"}`
+    `Last event: ${lastSegment ? lastSegment.event : "none"}`
   ];
+
+  if (mode === "mode2_cue_direction") {
+    if (!valid && candidate.rejectReason) {
+      lines.push(`Invalid reason: ${candidate.rejectReason}`);
+    }
+  } else {
+    lines.push(`Reject reason: ${candidate.rejectReason ?? "none"}`);
+  }
+
+  return lines;
 }
 
 function cloneBalls(balls: Ball[]): Ball[] {
@@ -372,4 +466,38 @@ function applyBallDrag(page: PageInstance, touch: { clientX: number; clientY: nu
   page.setData({
     editBalls: nextBalls
   });
+}
+
+function applyCueDirectionDrag(page: PageInstance, touch: { clientX: number; clientY: number }): void {
+  const stage = page.data.tableStageRectPx ?? DEFAULT_STAGE_RECT_PX;
+  if (stage.width <= 1 || stage.height <= 1) return;
+
+  const cueBall = page.data.editBalls.find((ball) => ball.role === "cue");
+  if (!cueBall) return;
+
+  const rawPoint = mapTouchToTablePoint(stage, touch);
+  const dx = rawPoint.x - cueBall.pos.x;
+  const dy = rawPoint.y - cueBall.pos.y;
+  const distance = Math.hypot(dx, dy);
+  if (distance < 0.02) return;
+
+  page.setData({
+    cueDirection: normalizeVector({ x: dx, y: dy })
+  });
+}
+
+function normalizeVector(vector: { x: number; y: number }): { x: number; y: number } {
+  const length = Math.hypot(vector.x, vector.y);
+  if (!Number.isFinite(length) || length === 0) {
+    return { x: 1, y: 0 };
+  }
+
+  return {
+    x: vector.x / length,
+    y: vector.y / length
+  };
+}
+
+function formatDirection(direction: { x: number; y: number }): string {
+  return `${direction.x.toFixed(3)}, ${direction.y.toFixed(3)}`;
 }
