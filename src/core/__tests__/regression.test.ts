@@ -504,6 +504,58 @@ describe("index page error mapping", () => {
     expect((page.data as Record<string, unknown>).solveRenderModel).toBeDefined();
   });
 
+  it("mode2 keeps travel-distance-threshold candidates visible in the render model", async () => {
+    const invalidResult: SolveResponse = {
+      solver: "local-geo",
+      elapsedMs: 9,
+      candidates: [
+        {
+          id: "mode2-threshold",
+          score: -18,
+          cushions: 2,
+          blocked: false,
+          rejectReason: "travel-distance-threshold",
+          segments: [
+            { event: "start", from: { x: 0.2, y: 0.4 }, to: { x: 0.42, y: 0.43 } },
+            { event: "end", from: { x: 0.42, y: 0.43 }, to: { x: 0.5, y: 0.44 } }
+          ],
+          metrics: {
+            travelDistance: 2.5,
+            minClearance: 0.8
+          }
+        }
+      ]
+    };
+    const solveShot = vi.fn().mockReturnValue(invalidResult);
+
+    const { importPage } = installIndexPage(solveShot);
+    const options = await importPage();
+
+    const handleModeChange = (options as { handleModeChange: (_event: unknown) => void }).handleModeChange;
+    const handleCalculate = (options as { handleCalculate: () => void }).handleCalculate;
+
+    const page = createPageHarness((options as { data: Record<string, unknown> }).data);
+    handleModeChange.call(page, { detail: { value: "mode2_cue_direction" } });
+
+    handleCalculate.call(page);
+
+    expect((page.data as Record<string, unknown>).errorText).toBe("");
+    expect((page.data as Record<string, unknown>).selectedCandidateId).toBe("mode2-threshold");
+    expect((page.data as Record<string, unknown>).solveRenderModel).toMatchObject({
+      selectedCandidateId: "mode2-threshold",
+      selectedCandidate: expect.objectContaining({
+        id: "mode2-threshold",
+        rejectReason: "travel-distance-threshold"
+      })
+    });
+    expect((page.data as Record<string, unknown>).resultLines).toEqual(
+      expect.arrayContaining([
+        "State: invalid",
+        "Invalid reason: travel-distance-threshold"
+      ])
+    );
+  });
+
   it("switching candidates only updates selection state and does not re-run the solver", async () => {
     const mode1Scene = loadScene("mode1-basic");
     const solveShot = vi.fn().mockReturnValue(solveMode1(mode1Scene));

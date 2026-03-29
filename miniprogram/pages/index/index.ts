@@ -333,13 +333,13 @@ function resolveDisplayCandidate(
     return requestedCandidate;
   }
 
+  if (mode === "mode2_cue_direction") {
+    return requestedCandidate ?? result.candidates[0];
+  }
+
   const usableCandidate = resolveSelectedCandidate(result, selectedCandidateId);
   if (usableCandidate) {
     return usableCandidate;
-  }
-
-  if (mode === "mode2_cue_direction") {
-    return result.candidates.find((candidate) => candidate.rejectReason === "pocketed");
   }
 
   return undefined;
