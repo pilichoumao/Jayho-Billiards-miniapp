@@ -2,14 +2,13 @@ import { distancePointToSegment, segment, segmentLength } from "../geometry";
 import type { Ball, CandidatePath, PathSegment, SolveRequest, SolveResponse, Vec2 } from "../types";
 
 type CushionSide = "left" | "right" | "top" | "bottom";
-type RejectReason = "timeout" | "travel-distance-threshold" | "blocked by obstacle";
+type RejectReason = "timeout" | "travel-distance-threshold" | "pocketed";
 
 type RayHit =
   | {
-      kind: "ball";
+      kind: "pocket";
       t: number;
       point: Vec2;
-      ball: Ball;
     }
   | {
       kind: "cushion";
@@ -19,7 +18,7 @@ type RayHit =
     };
 
 const EPSILON = 1e-9;
-const MAX_BOUNCES = 16;
+const MAX_BOUNCES = 4;
 const DEFAULT_TIMEOUT_MS = 2000;
 const DEFAULT_MAX_TRAVEL_DISTANCE = 2.5;
 const DEFAULT_MIN_CLEARANCE = 1;
@@ -38,6 +37,7 @@ export function solveMode2(req: SolveRequest): SolveResponse {
     cue,
     initialDirection: direction,
     balls: req.balls.filter((ball) => ball.role !== "cue"),
+    pocketR: req.table.pocketR,
     timeoutMs,
     startedAt,
     maxTravelDistance: DEFAULT_MAX_TRAVEL_DISTANCE
@@ -54,6 +54,7 @@ type SimulationArgs = {
   cue: Ball;
   initialDirection: Vec2;
   balls: Ball[];
+  pocketR: number;
   timeoutMs: number;
   startedAt: number;
   maxTravelDistance: number;
@@ -80,7 +81,7 @@ function simulateTrajectory(args: SimulationArgs): CandidatePath {
       break;
     }
 
-    const hit = findNextHit(current, direction, cueRadius, args.balls);
+    const hit = findNextHit(current, direction, cueRadius, args.pocketR);
 
     if (!hit) {
       const endPoint = advanceToTableEdge(current, direction, cueRadius);
@@ -111,15 +112,18 @@ function simulateTrajectory(args: SimulationArgs): CandidatePath {
       break;
     }
 
-    appendSegment(segments, current, hit.point, segments.length === 0 ? "start" : hit.kind === "cushion" ? "cushion" : "contact");
+    appendSegment(
+      segments,
+      current,
+      hit.point,
+      hit.kind === "pocket" ? "end" : segments.length === 0 ? "start" : "cushion"
+    );
     travelDistance += nextDistance;
     minClearance = Math.min(minClearance, computeMinClearance(segments[segments.length - 1], cueRadius, args.balls));
 
-    if (hit.kind === "ball") {
-      if (hit.ball.role === "obstacle") {
-        blocked = true;
-        rejectReason = "blocked by obstacle";
-      }
+    if (hit.kind === "pocket") {
+      blocked = true;
+      rejectReason = "pocketed";
       break;
     }
 
@@ -190,39 +194,54 @@ function getCueDirection(req: SolveRequest): Vec2 {
   return cueDirection;
 }
 
-function findNextHit(current: Vec2, direction: Vec2, cueRadius: number, balls: Ball[]): RayHit | null {
-  let bestBall: RayHit | null = null;
-
-  for (const ball of balls) {
-    const hit = intersectRayCircle(current, direction, ball, cueRadius);
-
-    if (!hit) {
-      continue;
-    }
-
-    if (!bestBall || hit.t < bestBall.t - EPSILON) {
-      bestBall = {
-        kind: "ball",
-        t: hit.t,
-        point: hit.point,
-        ball
-      };
-    }
-  }
-
+function findNextHit(current: Vec2, direction: Vec2, cueRadius: number, pocketR: number): RayHit | null {
   const cushionHit = intersectRayWithTable(current, direction, cueRadius);
+  const pocketHit = intersectRayWithPockets(current, direction, pocketR);
 
-  if (bestBall && (!cushionHit || bestBall.t <= cushionHit.t + EPSILON)) {
-    return bestBall;
+  if (pocketHit && (!cushionHit || pocketHit.t <= cushionHit.t + EPSILON)) {
+    return pocketHit;
   }
 
   return cushionHit;
 }
 
-function intersectRayCircle(origin: Vec2, direction: Vec2, ball: Ball, cueRadius: number): { t: number; point: Vec2 } | null {
-  const dx = origin.x - ball.pos.x;
-  const dy = origin.y - ball.pos.y;
-  const radius = cueRadius + ball.radius;
+function intersectRayWithPockets(origin: Vec2, direction: Vec2, pocketR: number): RayHit | null {
+  if (pocketR <= EPSILON) {
+    return null;
+  }
+
+  const pockets: Vec2[] = [
+    { x: 0, y: 0 },
+    { x: 0.5, y: 0 },
+    { x: 1, y: 0 },
+    { x: 0, y: 1 },
+    { x: 0.5, y: 1 },
+    { x: 1, y: 1 }
+  ];
+  let best: RayHit | null = null;
+
+  for (const pocket of pockets) {
+    const hit = intersectRayCircle(origin, direction, pocket, pocketR);
+
+    if (!hit) {
+      continue;
+    }
+
+    if (!best || hit.t < best.t - EPSILON) {
+      best = {
+        kind: "pocket",
+        t: hit.t,
+        point: hit.point
+      };
+    }
+  }
+
+  return best;
+}
+
+function intersectRayCircle(origin: Vec2, direction: Vec2, center: Vec2, radius: number): { t: number; point: Vec2 } | null {
+  const dx = origin.x - center.x;
+  const dy = origin.y - center.y;
   const b = 2 * (dx * direction.x + dy * direction.y);
   const c = dx * dx + dy * dy - radius * radius;
   const discriminant = b * b - 4 * c;
