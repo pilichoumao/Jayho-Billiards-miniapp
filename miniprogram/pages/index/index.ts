@@ -373,8 +373,8 @@ function buildSolveRenderModel(
     selectedCandidateId: candidate.id,
     selectedCandidate: candidate,
     routePoints: extractRoutePoints(candidate.segments),
-    routeSegments: extractRouteLineSegments(candidate.segments),
-    routeArrow: extractRouteArrow(candidate.segments),
+    routeSegments: extractRouteLineSegments(candidate.segments, request.table),
+    routeArrow: extractRouteArrow(candidate.segments, request.table),
     markers: extractRouteMarkers(candidate.segments),
     pocketAnchors: createPocketAnchors()
   };

@@ -65,15 +65,16 @@ describe("table-view helpers", () => {
       kind: "start",
       left: "0%",
       top: "0%",
-      width: "53.852%"
+      width: "50.99%"
     });
-    expect(model.routeSegments[0].angleDeg).toBeCloseTo(21.801, 3);
+    expect(model.routeSegments[0].angleDeg).toBeCloseTo(11.31, 3);
     expect(model.routeSegments[2]).toMatchObject({
       kind: "contact",
       left: "70%",
       top: "50%",
-      width: "14.142%"
+      width: "11.18%"
     });
+    expect(model.routeArrow?.angleDeg).toBeCloseTo(26.565, 3);
   });
 
   it("falls back to the first feasible candidate when the requested one is unusable", () => {

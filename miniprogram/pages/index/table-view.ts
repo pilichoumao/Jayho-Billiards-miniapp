@@ -1,4 +1,4 @@
-import type { Ball, CandidatePath, PathSegment, SolveRequest, SolveResponse, Vec2 } from "../../core/types";
+import type { Ball, CandidatePath, PathSegment, SolveRequest, SolveResponse, Table, Vec2 } from "../../core/types";
 
 export type StageRectPx = {
   left: number;
@@ -142,10 +142,13 @@ export function extractRoutePoints(segments: PathSegment[]): Vec2[] {
   return points;
 }
 
-export function extractRouteLineSegments(segments: PathSegment[]): RouteLineSegment[] {
+export function extractRouteLineSegments(segments: PathSegment[], table: Pick<Table, "width" | "height">): RouteLineSegment[] {
+  const yScale = getVisualYScale(table);
+
   return segments.map((segment, index) => {
     const dx = segment.to.x - segment.from.x;
     const dy = segment.to.y - segment.from.y;
+    const visualDy = dy * yScale;
 
     return {
       id: `${index}-${segment.event}`,
@@ -154,25 +157,26 @@ export function extractRouteLineSegments(segments: PathSegment[]): RouteLineSegm
       to: { ...segment.to },
       left: formatPercent(segment.from.x),
       top: formatPercent(segment.from.y),
-      width: formatPercent(Math.hypot(dx, dy)),
-      angleDeg: toDegrees(Math.atan2(dy, dx))
+      width: formatPercent(Math.hypot(dx, visualDy)),
+      angleDeg: toDegrees(Math.atan2(visualDy, dx))
     };
   });
 }
 
-export function extractRouteArrow(segments: PathSegment[]): RouteArrow | undefined {
+export function extractRouteArrow(segments: PathSegment[], table: Pick<Table, "width" | "height">): RouteArrow | undefined {
   const last = segments[segments.length - 1];
   if (!last) return undefined;
 
   const dx = last.to.x - last.from.x;
   const dy = last.to.y - last.from.y;
+  const visualDy = dy * getVisualYScale(table);
 
   return {
     id: `${segments.length - 1}-arrow`,
     point: { ...last.to },
     left: formatPercent(last.to.x),
     top: formatPercent(last.to.y),
-    angleDeg: toDegrees(Math.atan2(dy, dx))
+    angleDeg: toDegrees(Math.atan2(visualDy, dx))
   };
 }
 
@@ -207,8 +211,8 @@ export function buildCandidateRenderModel(
     selectedCandidateId: selectedCandidate?.id,
     selectedCandidate,
     routePoints: extractRoutePoints(segments),
-    routeSegments: extractRouteLineSegments(segments),
-    routeArrow: extractRouteArrow(segments),
+    routeSegments: extractRouteLineSegments(segments, request.table),
+    routeArrow: extractRouteArrow(segments, request.table),
     markers: extractRouteMarkers(segments),
     pocketAnchors: createPocketAnchors()
   };
@@ -237,4 +241,12 @@ function formatPercent(value: number): string {
 
 function toDegrees(radians: number): number {
   return Math.round((radians * 180) / Math.PI * 1000) / 1000;
+}
+
+function getVisualYScale(table: Pick<Table, "width" | "height">): number {
+  if (table.width === 0) {
+    return 1;
+  }
+
+  return table.height / table.width;
 }

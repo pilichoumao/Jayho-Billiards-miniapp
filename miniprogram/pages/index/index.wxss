@@ -30,6 +30,7 @@ page {
 .table-stage__frame {
   position: relative;
   width: 100%;
+  aspect-ratio: 2 / 1;
   min-height: 420rpx;
   border-radius: 30rpx;
   overflow: hidden;
