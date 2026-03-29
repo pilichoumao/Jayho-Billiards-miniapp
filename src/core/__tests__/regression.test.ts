@@ -147,6 +147,19 @@ describe("fixture regression suite", () => {
     expect(summarizeResponse(first)).toEqual(summarizeResponse(second));
     expect(first.solver).toBe("local-geo");
     expect(first.candidates).toHaveLength(1);
+    expect(first.candidates.map(candidateSignature)).toEqual([
+      {
+        id: "mode2-2-3",
+        cushions: 2,
+        blocked: false,
+        rejectReason: "travel-distance-threshold",
+        segments: 3,
+        score: -1002240,
+        travelDistance: 2.5,
+        minClearance: 1,
+        lastEvent: "end"
+      }
+    ]);
     expect(first.candidates[0].blocked).toBe(false);
     expect(first.candidates[0].rejectReason).toBe("travel-distance-threshold");
     expect(first.candidates[0].segments[0].event).toBe("start");

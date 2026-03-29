@@ -194,7 +194,7 @@ Page({
         return;
       }
 
-      const summary = summarizeResult(page.data.mode, result, displayCandidate.id, page.data.cueDirection);
+      const summary = summarizeResult(page.data.mode, result, displayCandidate.id, request.input.cueDirection);
       const solveRenderModel = buildSolveRenderModel(request, result, displayCandidate);
 
       page.setData({
@@ -236,8 +236,8 @@ Page({
       return;
     }
 
-    const summary = summarizeResult(page.data.mode, result, resolvedCandidate.id, page.data.cueDirection);
     const solveRequest = page.data.solveRenderModel?.request ?? createRequest(page.data.mode, page.data.editBalls);
+    const summary = summarizeResult(page.data.mode, result, resolvedCandidate.id, solveRequest.input.cueDirection);
     const solveRenderModel = buildSolveRenderModel(solveRequest, result, resolvedCandidate);
     page.setData({
       selectedCandidateId: resolvedCandidate.id,
@@ -321,10 +321,6 @@ function createRequest(mode: SolveMode, editBalls: Ball[], cueDirection?: { x: n
       pos: { ...ball.pos }
     }))
   };
-}
-
-function hasUsableCandidate(result: SolveResponse): boolean {
-  return result.candidates.some((candidate) => !candidate.blocked && !candidate.rejectReason);
 }
 
 function resolveDisplayCandidate(
